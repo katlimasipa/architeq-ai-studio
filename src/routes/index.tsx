@@ -56,8 +56,8 @@ function Nav() {
           <a href="#" className="hover:text-foreground transition">Changelog</a>
         </nav>
         <div className="flex items-center gap-3">
-          <a href="#" className="hidden sm:inline text-sm text-muted-foreground hover:text-foreground">Sign in</a>
-          <a href="#prompt" className="group inline-flex items-center gap-1.5 rounded-full bg-foreground text-background px-4 py-2 text-sm font-medium hover:bg-foreground/90 transition">
+          <a href="/auth" className="hidden sm:inline text-sm text-muted-foreground hover:text-foreground">Sign in</a>
+          <a href="/auth" className="group inline-flex items-center gap-1.5 rounded-full bg-foreground text-background px-4 py-2 text-sm font-medium hover:bg-foreground/90 transition">
             Open Studio
             <ArrowUpRight className="size-3.5 group-hover:translate-x-0.5 group-hover:-translate-y-0.5 transition" />
           </a>
@@ -90,7 +90,7 @@ function Hero() {
             Ship to production.
           </p>
           <div className="md:col-span-4 md:col-start-9 flex flex-wrap gap-3">
-            <a href="#prompt" className="inline-flex items-center gap-2 rounded-full bg-foreground text-background px-5 py-3 text-sm font-medium hover:bg-foreground/90 transition">
+            <a href="/auth" className="inline-flex items-center gap-2 rounded-full bg-foreground text-background px-5 py-3 text-sm font-medium hover:bg-foreground/90 transition">
               <Sparkles className="size-4" />
               Start building
             </a>
@@ -437,7 +437,7 @@ function CTA() {
         <p className="text-muted-foreground text-lg max-w-xl mx-auto mb-10">
           The studio is open. Bring a prompt, a Figma frame, or just a feeling. Architeq takes it from there.
         </p>
-        <a href="#prompt" className="inline-flex items-center gap-2 rounded-full bg-foreground text-background px-6 py-3.5 text-sm font-medium hover:bg-foreground/90 transition">
+        <a href="/auth" className="inline-flex items-center gap-2 rounded-full bg-foreground text-background px-6 py-3.5 text-sm font-medium hover:bg-foreground/90 transition">
           Open the Studio
           <ArrowUpRight className="size-4" />
         </a>
