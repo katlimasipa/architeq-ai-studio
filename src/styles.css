@@ -4,17 +4,9 @@
 
 @custom-variant dark (&:is(.dark *));
 
-@layer base {
-  @font-face {
-    font-family: "Editorial";
-    src: local("Times New Roman");
-    font-display: swap;
-  }
-}
-
 @theme inline {
-  --font-display: "Instrument Serif", "Cormorant Garamond", ui-serif, Georgia, serif;
-  --font-sans: "Geist", "Inter", system-ui, sans-serif;
+  --font-display: "Spectral", ui-serif, Georgia, serif;
+  --font-sans: "Geist", ui-sans-serif, system-ui, sans-serif;
   --font-mono: "JetBrains Mono", ui-monospace, monospace;
 
   --radius-sm: 6px;
