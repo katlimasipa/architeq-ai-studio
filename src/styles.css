@@ -4,17 +4,9 @@
 
 @custom-variant dark (&:is(.dark *));
 
-@layer base {
-  @font-face {
-    font-family: "Editorial";
-    src: local("Times New Roman");
-    font-display: swap;
-  }
-}
-
 @theme inline {
-  --font-display: "Instrument Serif", "Cormorant Garamond", ui-serif, Georgia, serif;
-  --font-sans: "Geist", "Inter", system-ui, sans-serif;
+  --font-display: "Spectral", ui-serif, Georgia, serif;
+  --font-sans: "Geist", ui-sans-serif, system-ui, sans-serif;
   --font-mono: "JetBrains Mono", ui-monospace, monospace;
 
   --radius-sm: 6px;
@@ -89,15 +81,15 @@
 
 @utility grain {
   position: relative;
-}
-@utility grain::after {
-  content: "";
-  position: absolute;
-  inset: 0;
-  pointer-events: none;
-  opacity: 0.04;
-  mix-blend-mode: overlay;
-  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+  &::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    opacity: 0.04;
+    mix-blend-mode: overlay;
+    background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+  }
 }
 
 @utility hairline {

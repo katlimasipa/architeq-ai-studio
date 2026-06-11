@@ -17,17 +17,9 @@ export const Route = createFileRoute("/")({
   component: Landing,
 });
 
-const fonts = (
-  <link
-    rel="stylesheet"
-    href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Geist:wght@300;400;500;600&family=JetBrains+Mono:wght@400;500&display=swap"
-  />
-);
-
 function Landing() {
   return (
     <div className="relative min-h-screen overflow-x-hidden">
-      {fonts}
       <Nav />
       <Hero />
       <Marquee />
