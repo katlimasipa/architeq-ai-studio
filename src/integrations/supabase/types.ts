@@ -49,33 +49,196 @@ export type Database = {
           },
         ]
       }
-      projects: {
+      project_assets: {
         Row: {
           created_at: string
-          html: string
           id: string
+          kind: string
           name: string
-          prompt: string
-          updated_at: string
+          project_id: string
+          storage_path: string | null
+          url: string
           user_id: string
         }
         Insert: {
           created_at?: string
-          html?: string
           id?: string
-          name?: string
-          prompt?: string
-          updated_at?: string
+          kind?: string
+          name: string
+          project_id: string
+          storage_path?: string | null
+          url: string
           user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          kind?: string
+          name?: string
+          project_id?: string
+          storage_path?: string | null
+          url?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "project_assets_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      project_skills: {
+        Row: {
+          created_at: string
+          project_id: string
+          skill_id: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          project_id: string
+          skill_id: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          project_id?: string
+          skill_id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "project_skills_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "project_skills_skill_id_fkey"
+            columns: ["skill_id"]
+            isOneToOne: false
+            referencedRelation: "skills"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      project_versions: {
+        Row: {
+          created_at: string
+          html: string
+          id: string
+          project_id: string
+          prompt: string
+          user_id: string
+          version: number
+        }
+        Insert: {
+          created_at?: string
+          html: string
+          id?: string
+          project_id: string
+          prompt?: string
+          user_id: string
+          version: number
         }
         Update: {
           created_at?: string
           html?: string
           id?: string
+          project_id?: string
+          prompt?: string
+          user_id?: string
+          version?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "project_versions_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      projects: {
+        Row: {
+          created_at: string
+          design_dna: Json
+          html: string
+          id: string
+          is_public: boolean
+          name: string
+          prompt: string
+          slug: string
+          updated_at: string
+          user_id: string
+          version: number
+        }
+        Insert: {
+          created_at?: string
+          design_dna?: Json
+          html?: string
+          id?: string
+          is_public?: boolean
           name?: string
           prompt?: string
+          slug: string
+          updated_at?: string
+          user_id: string
+          version?: number
+        }
+        Update: {
+          created_at?: string
+          design_dna?: Json
+          html?: string
+          id?: string
+          is_public?: boolean
+          name?: string
+          prompt?: string
+          slug?: string
           updated_at?: string
           user_id?: string
+          version?: number
+        }
+        Relationships: []
+      }
+      skills: {
+        Row: {
+          created_at: string
+          description: string
+          id: string
+          instructions: string
+          is_global: boolean
+          name: string
+          slug: string
+          updated_at: string
+          user_id: string | null
+        }
+        Insert: {
+          created_at?: string
+          description?: string
+          id?: string
+          instructions: string
+          is_global?: boolean
+          name: string
+          slug: string
+          updated_at?: string
+          user_id?: string | null
+        }
+        Update: {
+          created_at?: string
+          description?: string
+          id?: string
+          instructions?: string
+          is_global?: boolean
+          name?: string
+          slug?: string
+          updated_at?: string
+          user_id?: string | null
         }
         Relationships: []
       }
