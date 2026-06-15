@@ -90,6 +90,50 @@ export type Database = {
           },
         ]
       }
+      project_pages: {
+        Row: {
+          created_at: string
+          html: string
+          id: string
+          path: string
+          project_id: string
+          title: string
+          updated_at: string
+          user_id: string
+          version: number
+        }
+        Insert: {
+          created_at?: string
+          html?: string
+          id?: string
+          path: string
+          project_id: string
+          title?: string
+          updated_at?: string
+          user_id: string
+          version?: number
+        }
+        Update: {
+          created_at?: string
+          html?: string
+          id?: string
+          path?: string
+          project_id?: string
+          title?: string
+          updated_at?: string
+          user_id?: string
+          version?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "project_pages_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       project_skills: {
         Row: {
           created_at: string
@@ -168,40 +212,55 @@ export type Database = {
         Row: {
           created_at: string
           design_dna: Json
+          github_repo: string | null
+          github_url: string | null
           html: string
           id: string
           is_public: boolean
+          last_deployed_at: string | null
           name: string
           prompt: string
           slug: string
           updated_at: string
           user_id: string
+          vercel_project_id: string | null
+          vercel_url: string | null
           version: number
         }
         Insert: {
           created_at?: string
           design_dna?: Json
+          github_repo?: string | null
+          github_url?: string | null
           html?: string
           id?: string
           is_public?: boolean
+          last_deployed_at?: string | null
           name?: string
           prompt?: string
           slug: string
           updated_at?: string
           user_id: string
+          vercel_project_id?: string | null
+          vercel_url?: string | null
           version?: number
         }
         Update: {
           created_at?: string
           design_dna?: Json
+          github_repo?: string | null
+          github_url?: string | null
           html?: string
           id?: string
           is_public?: boolean
+          last_deployed_at?: string | null
           name?: string
           prompt?: string
           slug?: string
           updated_at?: string
           user_id?: string
+          vercel_project_id?: string | null
+          vercel_url?: string | null
           version?: number
         }
         Relationships: []
