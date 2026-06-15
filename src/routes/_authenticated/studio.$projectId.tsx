@@ -2,8 +2,9 @@ import { createFileRoute, Link, useRouter } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import {
-  getProject, generateSite, togglePublic, restoreVersion,
+  getProject, generateSite, togglePublic, restoreVersion, deletePage,
 } from "@/lib/projects.functions";
+import { pushToGithub, deployToVercel } from "@/lib/deployments.functions";
 import { uploadAsset, deleteAsset } from "@/lib/assets.functions";
 import { listSkills, createSkill, toggleProjectSkill, deleteSkill } from "@/lib/skills.functions";
 import { useEffect, useRef, useState } from "react";
@@ -11,6 +12,7 @@ import {
   ArrowLeft, Send, Loader2, Sparkles, Monitor, Smartphone,
   Code, Eye, Download, ExternalLink, Upload, Image as ImageIcon,
   Trash2, History, Share2, Check, Copy, Wand2, Plus, X, Zap,
+  FileCode, Rocket, Github, Globe,
 } from "lucide-react";
 import { toast } from "sonner";
 import { formatDistanceToNow } from "date-fns";
@@ -20,7 +22,7 @@ export const Route = createFileRoute("/_authenticated/studio/$projectId")({
   component: Studio,
 });
 
-type Panel = null | "assets" | "skills" | "versions" | "share";
+type Panel = null | "assets" | "skills" | "versions" | "share" | "pages" | "deploy";
 
 function Studio() {
   const { projectId } = Route.useParams();
@@ -36,11 +38,15 @@ function Studio() {
   const createSk = useServerFn(createSkill);
   const toggleSk = useServerFn(toggleProjectSkill);
   const delSk = useServerFn(deleteSkill);
+  const delPage = useServerFn(deletePage);
+  const ghPush = useServerFn(pushToGithub);
+  const vercelDeploy = useServerFn(deployToVercel);
 
   const [input, setInput] = useState("");
   const [device, setDevice] = useState<"desktop" | "mobile">("desktop");
   const [tab, setTab] = useState<"preview" | "code">("preview");
   const [panel, setPanel] = useState<Panel>(null);
+  const [previewPath, setPreviewPath] = useState<string>("/");
   const scrollRef = useRef<HTMLDivElement>(null);
 
   const { data, isLoading } = useQuery({
@@ -110,6 +116,37 @@ function Studio() {
     onSuccess: () => qc.invalidateQueries({ queryKey: ["skills"] }),
   });
 
+  const delPageMut = useMutation({
+    mutationFn: (path: string) => delPage({ data: { projectId, path } }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["project", projectId] });
+      toast.success("Page deleted");
+    },
+    onError: (e) => toast.error(e instanceof Error ? e.message : "Failed"),
+  });
+
+  const ghMut = useMutation({
+    mutationFn: (opts: { repoName?: string; isPrivate: boolean }) =>
+      ghPush({ data: { projectId, repoName: opts.repoName, isPrivate: opts.isPrivate } }),
+    onSuccess: (r) => {
+      qc.invalidateQueries({ queryKey: ["project", projectId] });
+      qc.invalidateQueries({ queryKey: ["projects"] });
+      toast.success(`Pushed to GitHub — ${r.repoFullName}`);
+    },
+    onError: (e) => toast.error(e instanceof Error ? e.message : "GitHub push failed"),
+  });
+
+  const vercelMut = useMutation({
+    mutationFn: () => vercelDeploy({ data: { projectId } }),
+    onSuccess: (r) => {
+      qc.invalidateQueries({ queryKey: ["project", projectId] });
+      qc.invalidateQueries({ queryKey: ["projects"] });
+      toast.success("Deployed to Vercel");
+      window.open(r.url, "_blank");
+    },
+    onError: (e) => toast.error(e instanceof Error ? e.message : "Vercel deploy failed"),
+  });
+
   useEffect(() => {
     scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: "smooth" });
   }, [data?.messages, gen.isPending]);
@@ -158,8 +195,12 @@ function Studio() {
   const assets = data?.assets ?? [];
   const versions = data?.versions ?? [];
   const activeSkills = data?.activeSkills ?? [];
+  const pages = data?.pages ?? [];
   const slug = data?.project.slug ?? "";
+  const isPublic = data?.project.is_public ?? true;
+  const project = data?.project as any;
   const shareUrl = typeof window !== "undefined" ? `${window.location.origin}/p/${slug}` : `/p/${slug}`;
+  const previewSrc = isPublic && slug ? `/p/${slug}${previewPath === "/" ? "" : previewPath}` : null;
 
   return (
     <div className="h-screen flex flex-col">
@@ -196,10 +237,12 @@ function Studio() {
           </div>
 
           <div className="flex items-center gap-1">
+            <PanelBtn icon={<FileCode className="size-4" />} label="Pages" active={panel === "pages"} onClick={() => setPanel(panel === "pages" ? null : "pages")} badge={pages.length || (html ? 1 : 0)} />
             <PanelBtn icon={<ImageIcon className="size-4" />} label="Assets" active={panel === "assets"} onClick={() => setPanel(panel === "assets" ? null : "assets")} badge={assets.length} />
             <PanelBtn icon={<Wand2 className="size-4" />} label="Skills" active={panel === "skills"} onClick={() => setPanel(panel === "skills" ? null : "skills")} badge={activeSkills.length} />
             <PanelBtn icon={<History className="size-4" />} label="Versions" active={panel === "versions"} onClick={() => setPanel(panel === "versions" ? null : "versions")} badge={versions.length} />
             <PanelBtn icon={<Share2 className="size-4" />} label="Share" active={panel === "share"} onClick={() => setPanel(panel === "share" ? null : "share")} />
+            <PanelBtn icon={<Rocket className="size-4" />} label="Deploy" active={panel === "deploy"} onClick={() => setPanel(panel === "deploy" ? null : "deploy")} />
             {html && (
               <>
                 <button onClick={openInNewTab} className="p-1.5 rounded-md hover:bg-surface text-muted-foreground hover:text-foreground" title="Open live preview">
@@ -282,21 +325,45 @@ function Studio() {
         <section className="bg-surface/20 flex flex-col min-h-0">
           {tab === "preview" ? (
             <>
-              <div className="border-b border-border/40 px-4 h-10 flex items-center justify-between text-xs text-muted-foreground">
-                <span className="font-mono">{slug ? `/p/${slug}` : "preview"}</span>
-                <div className="flex items-center gap-1">
+              <div className="border-b border-border/40 px-4 h-10 flex items-center gap-3 text-xs text-muted-foreground">
+                <span className="font-mono truncate">{slug ? `/p/${slug}${previewPath === "/" ? "" : previewPath}` : "preview"}</span>
+                {pages.length > 1 && (
+                  <select
+                    value={previewPath}
+                    onChange={(e) => setPreviewPath(e.target.value)}
+                    className="bg-surface border border-border rounded px-2 py-0.5 text-xs"
+                  >
+                    {pages.map((p) => (
+                      <option key={p.path} value={p.path}>{p.path}{p.title ? ` — ${p.title}` : ""}</option>
+                    ))}
+                  </select>
+                )}
+                {!isPublic && (
+                  <span className="text-[10px] uppercase tracking-wider text-amber-500 border border-amber-500/30 rounded-full px-2 py-0.5">private — links inactive</span>
+                )}
+                <div className="ml-auto flex items-center gap-1">
                   <button onClick={() => setDevice("desktop")} className={`p-1 rounded ${device === "desktop" ? "text-foreground" : "hover:text-foreground"}`}><Monitor className="size-3.5" /></button>
                   <button onClick={() => setDevice("mobile")} className={`p-1 rounded ${device === "mobile" ? "text-foreground" : "hover:text-foreground"}`}><Smartphone className="size-3.5" /></button>
                 </div>
               </div>
               <div className="flex-1 overflow-auto p-4 flex items-start justify-center">
                 {html ? (
-                  <iframe
-                    title="preview"
-                    srcDoc={html}
-                    sandbox="allow-scripts allow-same-origin allow-forms"
-                    className={`bg-white rounded-lg shadow-2xl border border-border/40 transition-all ${device === "mobile" ? "w-[390px] h-[844px]" : "w-full h-full min-h-[800px]"}`}
-                  />
+                  previewSrc ? (
+                    <iframe
+                      key={previewSrc}
+                      title="preview"
+                      src={previewSrc}
+                      sandbox="allow-scripts allow-same-origin allow-forms allow-popups"
+                      className={`bg-white rounded-lg shadow-2xl border border-border/40 transition-all ${device === "mobile" ? "w-[390px] h-[844px]" : "w-full h-full min-h-[800px]"}`}
+                    />
+                  ) : (
+                    <iframe
+                      title="preview"
+                      srcDoc={html}
+                      sandbox="allow-scripts allow-same-origin allow-forms"
+                      className={`bg-white rounded-lg shadow-2xl border border-border/40 transition-all ${device === "mobile" ? "w-[390px] h-[844px]" : "w-full h-full min-h-[800px]"}`}
+                    />
+                  )
                 ) : (
                   <div className="m-auto text-center text-muted-foreground">
                     <Sparkles className="size-6 mx-auto mb-3 text-ember" />
@@ -350,6 +417,28 @@ function Studio() {
                   shareUrl={shareUrl}
                   isPublic={data?.project.is_public ?? true}
                   onTogglePublic={(v) => pubMut.mutate(v)}
+                />
+              )}
+              {panel === "pages" && (
+                <PagesPanel
+                  pages={pages}
+                  currentPath={previewPath}
+                  onSelect={(p) => { setPreviewPath(p); setTab("preview"); }}
+                  onDelete={(p) => delPageMut.mutate(p)}
+                  onPrompt={(prompt) => { setInput(prompt); }}
+                  shareUrl={shareUrl}
+                  isPublic={isPublic}
+                />
+              )}
+              {panel === "deploy" && (
+                <DeployPanel
+                  githubUrl={project?.github_url ?? null}
+                  vercelUrl={project?.vercel_url ?? null}
+                  defaultRepoName={`${(data?.project.name ?? "site").toLowerCase().replace(/[^a-z0-9-]+/g, "-")}-${slug}`}
+                  onPushGithub={(repoName, isPrivate) => ghMut.mutate({ repoName, isPrivate })}
+                  onDeployVercel={() => vercelMut.mutate()}
+                  pushing={ghMut.isPending}
+                  deploying={vercelMut.isPending}
                 />
               )}
             </div>
@@ -538,6 +627,138 @@ function SharePanel({ shareUrl, isPublic, onTogglePublic }: { shareUrl: string; 
       <a href={shareUrl} target="_blank" rel="noreferrer" className="block text-center text-xs text-ember hover:underline">
         Open preview in new tab →
       </a>
+    </div>
+  );
+}
+
+function PagesPanel({ pages, currentPath, onSelect, onDelete, onPrompt, shareUrl, isPublic }: {
+  pages: { id: string; path: string; title: string; updated_at: string }[];
+  currentPath: string;
+  onSelect: (path: string) => void;
+  onDelete: (path: string) => void;
+  onPrompt: (prompt: string) => void;
+  shareUrl: string;
+  isPublic: boolean;
+}) {
+  return (
+    <div className="space-y-4">
+      <p className="text-sm text-muted-foreground leading-relaxed">
+        Each page lives at its own URL. Ask the AI to <em>add a Contact page</em> or <em>create an About page with the team</em> — the navbar updates automatically.
+      </p>
+      <div className="space-y-2">
+        {pages.length === 0 && (
+          <p className="text-xs text-muted-foreground text-center py-4">No pages yet. Send a prompt to generate one.</p>
+        )}
+        {pages.map((p) => (
+          <div key={p.id} className={`p-3 rounded-lg border transition ${currentPath === p.path ? "border-ember/60 bg-ember/5" : "border-border/60 bg-surface/40"}`}>
+            <div className="flex items-center justify-between gap-2 mb-1">
+              <button onClick={() => onSelect(p.path)} className="min-w-0 text-left flex-1">
+                <p className="text-sm font-medium truncate">{p.title || (p.path === "/" ? "Home" : p.path)}</p>
+                <p className="text-[10px] font-mono text-muted-foreground truncate">{p.path}</p>
+              </button>
+              <div className="flex items-center gap-1 shrink-0">
+                {isPublic && (
+                  <a href={`${shareUrl}${p.path === "/" ? "" : p.path}`} target="_blank" rel="noreferrer" className="p-1 text-muted-foreground hover:text-foreground" title="Open">
+                    <ExternalLink className="size-3.5" />
+                  </a>
+                )}
+                {p.path !== "/" && (
+                  <button onClick={() => onDelete(p.path)} className="p-1 text-muted-foreground hover:text-destructive" title="Delete page">
+                    <Trash2 className="size-3.5" />
+                  </button>
+                )}
+              </div>
+            </div>
+            <p className="text-[10px] text-muted-foreground">Updated {formatDistanceToNow(new Date(p.updated_at))} ago</p>
+          </div>
+        ))}
+      </div>
+      <div className="pt-3 border-t border-border/40 space-y-1.5">
+        <p className="text-[10px] uppercase tracking-[0.15em] text-muted-foreground mb-2">Quick prompts</p>
+        {[
+          "Add a Contact page with a form and our address.",
+          "Add an About page telling our origin story.",
+          "Add a Pricing page with three tiers.",
+          "Add a Blog index page with 3 sample articles.",
+        ].map((q) => (
+          <button key={q} onClick={() => onPrompt(q)} className="block w-full text-left text-xs px-2 py-1.5 rounded border border-border bg-surface/40 hover:bg-surface-elevated text-muted-foreground hover:text-foreground transition">
+            {q}
+          </button>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function DeployPanel({ githubUrl, vercelUrl, defaultRepoName, onPushGithub, onDeployVercel, pushing, deploying }: {
+  githubUrl: string | null;
+  vercelUrl: string | null;
+  defaultRepoName: string;
+  onPushGithub: (repoName: string, isPrivate: boolean) => void;
+  onDeployVercel: () => void;
+  pushing: boolean;
+  deploying: boolean;
+}) {
+  const [repoName, setRepoName] = useState(defaultRepoName);
+  const [isPrivate, setIsPrivate] = useState(false);
+  return (
+    <div className="space-y-5">
+      <p className="text-sm text-muted-foreground leading-relaxed">
+        Push your site straight to GitHub and deploy it live on Vercel — each generation is shipped as a real static site.
+      </p>
+
+      <div className="space-y-3 p-3 rounded-xl border border-border/60 bg-surface/40">
+        <div className="flex items-center gap-2">
+          <Github className="size-4" />
+          <p className="text-sm font-medium">GitHub repository</p>
+        </div>
+        {githubUrl ? (
+          <a href={githubUrl} target="_blank" rel="noreferrer" className="block text-xs text-ember truncate hover:underline">{githubUrl}</a>
+        ) : (
+          <p className="text-xs text-muted-foreground">No repo connected yet.</p>
+        )}
+        <input
+          value={repoName}
+          onChange={(e) => setRepoName(e.target.value)}
+          placeholder="repo-name"
+          className="w-full bg-background border border-border rounded px-2 py-1.5 text-xs font-mono"
+        />
+        <label className="flex items-center gap-2 text-xs text-muted-foreground">
+          <input type="checkbox" checked={isPrivate} onChange={(e) => setIsPrivate(e.target.checked)} className="accent-ember" />
+          Private repository
+        </label>
+        <button
+          onClick={() => onPushGithub(repoName, isPrivate)}
+          disabled={pushing || !repoName}
+          className="w-full inline-flex items-center justify-center gap-2 text-xs py-2 rounded-lg bg-foreground text-background disabled:opacity-50"
+        >
+          {pushing ? <Loader2 className="size-3.5 animate-spin" /> : <Github className="size-3.5" />}
+          {githubUrl ? "Push update" : "Create repo & push"}
+        </button>
+      </div>
+
+      <div className="space-y-3 p-3 rounded-xl border border-border/60 bg-surface/40">
+        <div className="flex items-center gap-2">
+          <Globe className="size-4" />
+          <p className="text-sm font-medium">Vercel deployment</p>
+        </div>
+        {vercelUrl ? (
+          <a href={vercelUrl} target="_blank" rel="noreferrer" className="block text-xs text-ember truncate hover:underline">{vercelUrl}</a>
+        ) : (
+          <p className="text-xs text-muted-foreground">Not deployed yet.</p>
+        )}
+        <button
+          onClick={onDeployVercel}
+          disabled={deploying}
+          className="w-full inline-flex items-center justify-center gap-2 text-xs py-2 rounded-lg bg-gradient-to-br from-ember to-violet text-background disabled:opacity-50"
+        >
+          {deploying ? <Loader2 className="size-3.5 animate-spin" /> : <Rocket className="size-3.5" />}
+          {vercelUrl ? "Redeploy to Vercel" : "Deploy to Vercel"}
+        </button>
+        <p className="text-[10px] text-muted-foreground leading-relaxed">
+          Each deploy is production. The URL above is the live, shareable site.
+        </p>
+      </div>
     </div>
   );
 }
