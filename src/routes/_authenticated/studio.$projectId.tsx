@@ -325,21 +325,45 @@ function Studio() {
         <section className="bg-surface/20 flex flex-col min-h-0">
           {tab === "preview" ? (
             <>
-              <div className="border-b border-border/40 px-4 h-10 flex items-center justify-between text-xs text-muted-foreground">
-                <span className="font-mono">{slug ? `/p/${slug}` : "preview"}</span>
-                <div className="flex items-center gap-1">
+              <div className="border-b border-border/40 px-4 h-10 flex items-center gap-3 text-xs text-muted-foreground">
+                <span className="font-mono truncate">{slug ? `/p/${slug}${previewPath === "/" ? "" : previewPath}` : "preview"}</span>
+                {pages.length > 1 && (
+                  <select
+                    value={previewPath}
+                    onChange={(e) => setPreviewPath(e.target.value)}
+                    className="bg-surface border border-border rounded px-2 py-0.5 text-xs"
+                  >
+                    {pages.map((p) => (
+                      <option key={p.path} value={p.path}>{p.path}{p.title ? ` — ${p.title}` : ""}</option>
+                    ))}
+                  </select>
+                )}
+                {!isPublic && (
+                  <span className="text-[10px] uppercase tracking-wider text-amber-500 border border-amber-500/30 rounded-full px-2 py-0.5">private — links inactive</span>
+                )}
+                <div className="ml-auto flex items-center gap-1">
                   <button onClick={() => setDevice("desktop")} className={`p-1 rounded ${device === "desktop" ? "text-foreground" : "hover:text-foreground"}`}><Monitor className="size-3.5" /></button>
                   <button onClick={() => setDevice("mobile")} className={`p-1 rounded ${device === "mobile" ? "text-foreground" : "hover:text-foreground"}`}><Smartphone className="size-3.5" /></button>
                 </div>
               </div>
               <div className="flex-1 overflow-auto p-4 flex items-start justify-center">
                 {html ? (
-                  <iframe
-                    title="preview"
-                    srcDoc={html}
-                    sandbox="allow-scripts allow-same-origin allow-forms"
-                    className={`bg-white rounded-lg shadow-2xl border border-border/40 transition-all ${device === "mobile" ? "w-[390px] h-[844px]" : "w-full h-full min-h-[800px]"}`}
-                  />
+                  previewSrc ? (
+                    <iframe
+                      key={previewSrc}
+                      title="preview"
+                      src={previewSrc}
+                      sandbox="allow-scripts allow-same-origin allow-forms allow-popups"
+                      className={`bg-white rounded-lg shadow-2xl border border-border/40 transition-all ${device === "mobile" ? "w-[390px] h-[844px]" : "w-full h-full min-h-[800px]"}`}
+                    />
+                  ) : (
+                    <iframe
+                      title="preview"
+                      srcDoc={html}
+                      sandbox="allow-scripts allow-same-origin allow-forms"
+                      className={`bg-white rounded-lg shadow-2xl border border-border/40 transition-all ${device === "mobile" ? "w-[390px] h-[844px]" : "w-full h-full min-h-[800px]"}`}
+                    />
+                  )
                 ) : (
                   <div className="m-auto text-center text-muted-foreground">
                     <Sparkles className="size-6 mx-auto mb-3 text-ember" />
