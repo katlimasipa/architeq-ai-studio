@@ -630,3 +630,135 @@ function SharePanel({ shareUrl, isPublic, onTogglePublic }: { shareUrl: string; 
     </div>
   );
 }
+
+function PagesPanel({ pages, currentPath, onSelect, onDelete, onPrompt, shareUrl, isPublic }: {
+  pages: { id: string; path: string; title: string; updated_at: string }[];
+  currentPath: string;
+  onSelect: (path: string) => void;
+  onDelete: (path: string) => void;
+  onPrompt: (prompt: string) => void;
+  shareUrl: string;
+  isPublic: boolean;
+}) {
+  return (
+    <div className="space-y-4">
+      <p className="text-sm text-muted-foreground leading-relaxed">
+        Each page lives at its own URL. Ask the AI to <em>add a Contact page</em> or <em>create an About page with the team</em> — the navbar updates automatically.
+      </p>
+      <div className="space-y-2">
+        {pages.length === 0 && (
+          <p className="text-xs text-muted-foreground text-center py-4">No pages yet. Send a prompt to generate one.</p>
+        )}
+        {pages.map((p) => (
+          <div key={p.id} className={`p-3 rounded-lg border transition ${currentPath === p.path ? "border-ember/60 bg-ember/5" : "border-border/60 bg-surface/40"}`}>
+            <div className="flex items-center justify-between gap-2 mb-1">
+              <button onClick={() => onSelect(p.path)} className="min-w-0 text-left flex-1">
+                <p className="text-sm font-medium truncate">{p.title || (p.path === "/" ? "Home" : p.path)}</p>
+                <p className="text-[10px] font-mono text-muted-foreground truncate">{p.path}</p>
+              </button>
+              <div className="flex items-center gap-1 shrink-0">
+                {isPublic && (
+                  <a href={`${shareUrl}${p.path === "/" ? "" : p.path}`} target="_blank" rel="noreferrer" className="p-1 text-muted-foreground hover:text-foreground" title="Open">
+                    <ExternalLink className="size-3.5" />
+                  </a>
+                )}
+                {p.path !== "/" && (
+                  <button onClick={() => onDelete(p.path)} className="p-1 text-muted-foreground hover:text-destructive" title="Delete page">
+                    <Trash2 className="size-3.5" />
+                  </button>
+                )}
+              </div>
+            </div>
+            <p className="text-[10px] text-muted-foreground">Updated {formatDistanceToNow(new Date(p.updated_at))} ago</p>
+          </div>
+        ))}
+      </div>
+      <div className="pt-3 border-t border-border/40 space-y-1.5">
+        <p className="text-[10px] uppercase tracking-[0.15em] text-muted-foreground mb-2">Quick prompts</p>
+        {[
+          "Add a Contact page with a form and our address.",
+          "Add an About page telling our origin story.",
+          "Add a Pricing page with three tiers.",
+          "Add a Blog index page with 3 sample articles.",
+        ].map((q) => (
+          <button key={q} onClick={() => onPrompt(q)} className="block w-full text-left text-xs px-2 py-1.5 rounded border border-border bg-surface/40 hover:bg-surface-elevated text-muted-foreground hover:text-foreground transition">
+            {q}
+          </button>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function DeployPanel({ githubUrl, vercelUrl, defaultRepoName, onPushGithub, onDeployVercel, pushing, deploying }: {
+  githubUrl: string | null;
+  vercelUrl: string | null;
+  defaultRepoName: string;
+  onPushGithub: (repoName: string, isPrivate: boolean) => void;
+  onDeployVercel: () => void;
+  pushing: boolean;
+  deploying: boolean;
+}) {
+  const [repoName, setRepoName] = useState(defaultRepoName);
+  const [isPrivate, setIsPrivate] = useState(false);
+  return (
+    <div className="space-y-5">
+      <p className="text-sm text-muted-foreground leading-relaxed">
+        Push your site straight to GitHub and deploy it live on Vercel — each generation is shipped as a real static site.
+      </p>
+
+      <div className="space-y-3 p-3 rounded-xl border border-border/60 bg-surface/40">
+        <div className="flex items-center gap-2">
+          <Github className="size-4" />
+          <p className="text-sm font-medium">GitHub repository</p>
+        </div>
+        {githubUrl ? (
+          <a href={githubUrl} target="_blank" rel="noreferrer" className="block text-xs text-ember truncate hover:underline">{githubUrl}</a>
+        ) : (
+          <p className="text-xs text-muted-foreground">No repo connected yet.</p>
+        )}
+        <input
+          value={repoName}
+          onChange={(e) => setRepoName(e.target.value)}
+          placeholder="repo-name"
+          className="w-full bg-background border border-border rounded px-2 py-1.5 text-xs font-mono"
+        />
+        <label className="flex items-center gap-2 text-xs text-muted-foreground">
+          <input type="checkbox" checked={isPrivate} onChange={(e) => setIsPrivate(e.target.checked)} className="accent-ember" />
+          Private repository
+        </label>
+        <button
+          onClick={() => onPushGithub(repoName, isPrivate)}
+          disabled={pushing || !repoName}
+          className="w-full inline-flex items-center justify-center gap-2 text-xs py-2 rounded-lg bg-foreground text-background disabled:opacity-50"
+        >
+          {pushing ? <Loader2 className="size-3.5 animate-spin" /> : <Github className="size-3.5" />}
+          {githubUrl ? "Push update" : "Create repo & push"}
+        </button>
+      </div>
+
+      <div className="space-y-3 p-3 rounded-xl border border-border/60 bg-surface/40">
+        <div className="flex items-center gap-2">
+          <Globe className="size-4" />
+          <p className="text-sm font-medium">Vercel deployment</p>
+        </div>
+        {vercelUrl ? (
+          <a href={vercelUrl} target="_blank" rel="noreferrer" className="block text-xs text-ember truncate hover:underline">{vercelUrl}</a>
+        ) : (
+          <p className="text-xs text-muted-foreground">Not deployed yet.</p>
+        )}
+        <button
+          onClick={onDeployVercel}
+          disabled={deploying}
+          className="w-full inline-flex items-center justify-center gap-2 text-xs py-2 rounded-lg bg-gradient-to-br from-ember to-violet text-background disabled:opacity-50"
+        >
+          {deploying ? <Loader2 className="size-3.5 animate-spin" /> : <Rocket className="size-3.5" />}
+          {vercelUrl ? "Redeploy to Vercel" : "Deploy to Vercel"}
+        </button>
+        <p className="text-[10px] text-muted-foreground leading-relaxed">
+          Each deploy is production. The URL above is the live, shareable site.
+        </p>
+      </div>
+    </div>
+  );
+}
