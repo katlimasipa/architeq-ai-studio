@@ -116,6 +116,37 @@ function Studio() {
     onSuccess: () => qc.invalidateQueries({ queryKey: ["skills"] }),
   });
 
+  const delPageMut = useMutation({
+    mutationFn: (path: string) => delPage({ data: { projectId, path } }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["project", projectId] });
+      toast.success("Page deleted");
+    },
+    onError: (e) => toast.error(e instanceof Error ? e.message : "Failed"),
+  });
+
+  const ghMut = useMutation({
+    mutationFn: (opts: { repoName?: string; isPrivate: boolean }) =>
+      ghPush({ data: { projectId, repoName: opts.repoName, isPrivate: opts.isPrivate } }),
+    onSuccess: (r) => {
+      qc.invalidateQueries({ queryKey: ["project", projectId] });
+      qc.invalidateQueries({ queryKey: ["projects"] });
+      toast.success(`Pushed to GitHub — ${r.repoFullName}`);
+    },
+    onError: (e) => toast.error(e instanceof Error ? e.message : "GitHub push failed"),
+  });
+
+  const vercelMut = useMutation({
+    mutationFn: () => vercelDeploy({ data: { projectId } }),
+    onSuccess: (r) => {
+      qc.invalidateQueries({ queryKey: ["project", projectId] });
+      qc.invalidateQueries({ queryKey: ["projects"] });
+      toast.success("Deployed to Vercel");
+      window.open(r.url, "_blank");
+    },
+    onError: (e) => toast.error(e instanceof Error ? e.message : "Vercel deploy failed"),
+  });
+
   useEffect(() => {
     scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: "smooth" });
   }, [data?.messages, gen.isPending]);
