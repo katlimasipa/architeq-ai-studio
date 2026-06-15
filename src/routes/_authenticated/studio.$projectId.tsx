@@ -195,8 +195,12 @@ function Studio() {
   const assets = data?.assets ?? [];
   const versions = data?.versions ?? [];
   const activeSkills = data?.activeSkills ?? [];
+  const pages = data?.pages ?? [];
   const slug = data?.project.slug ?? "";
+  const isPublic = data?.project.is_public ?? true;
+  const project = data?.project as any;
   const shareUrl = typeof window !== "undefined" ? `${window.location.origin}/p/${slug}` : `/p/${slug}`;
+  const previewSrc = isPublic && slug ? `/p/${slug}${previewPath === "/" ? "" : previewPath}` : null;
 
   return (
     <div className="h-screen flex flex-col">
