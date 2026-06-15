@@ -237,10 +237,12 @@ function Studio() {
           </div>
 
           <div className="flex items-center gap-1">
+            <PanelBtn icon={<FileCode className="size-4" />} label="Pages" active={panel === "pages"} onClick={() => setPanel(panel === "pages" ? null : "pages")} badge={pages.length || (html ? 1 : 0)} />
             <PanelBtn icon={<ImageIcon className="size-4" />} label="Assets" active={panel === "assets"} onClick={() => setPanel(panel === "assets" ? null : "assets")} badge={assets.length} />
             <PanelBtn icon={<Wand2 className="size-4" />} label="Skills" active={panel === "skills"} onClick={() => setPanel(panel === "skills" ? null : "skills")} badge={activeSkills.length} />
             <PanelBtn icon={<History className="size-4" />} label="Versions" active={panel === "versions"} onClick={() => setPanel(panel === "versions" ? null : "versions")} badge={versions.length} />
             <PanelBtn icon={<Share2 className="size-4" />} label="Share" active={panel === "share"} onClick={() => setPanel(panel === "share" ? null : "share")} />
+            <PanelBtn icon={<Rocket className="size-4" />} label="Deploy" active={panel === "deploy"} onClick={() => setPanel(panel === "deploy" ? null : "deploy")} />
             {html && (
               <>
                 <button onClick={openInNewTab} className="p-1.5 rounded-md hover:bg-surface text-muted-foreground hover:text-foreground" title="Open live preview">
