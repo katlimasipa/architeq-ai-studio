@@ -419,6 +419,28 @@ function Studio() {
                   onTogglePublic={(v) => pubMut.mutate(v)}
                 />
               )}
+              {panel === "pages" && (
+                <PagesPanel
+                  pages={pages}
+                  currentPath={previewPath}
+                  onSelect={(p) => { setPreviewPath(p); setTab("preview"); }}
+                  onDelete={(p) => delPageMut.mutate(p)}
+                  onPrompt={(prompt) => { setInput(prompt); }}
+                  shareUrl={shareUrl}
+                  isPublic={isPublic}
+                />
+              )}
+              {panel === "deploy" && (
+                <DeployPanel
+                  githubUrl={project?.github_url ?? null}
+                  vercelUrl={project?.vercel_url ?? null}
+                  defaultRepoName={`${(data?.project.name ?? "site").toLowerCase().replace(/[^a-z0-9-]+/g, "-")}-${slug}`}
+                  onPushGithub={(repoName, isPrivate) => ghMut.mutate({ repoName, isPrivate })}
+                  onDeployVercel={() => vercelMut.mutate()}
+                  pushing={ghMut.isPending}
+                  deploying={vercelMut.isPending}
+                />
+              )}
             </div>
           </aside>
         )}
