@@ -1,37 +1,30 @@
-import { createFileRoute, notFound } from "@tanstack/react-router";
-import { getPublicProject } from "@/lib/projects.functions";
+import { createFileRoute } from "@tanstack/react-router";
+
+async function serve(slug: string, path: string) {
+  const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+  const { data: p } = await supabaseAdmin
+    .from("projects")
+    .select("id, html, is_public")
+    .eq("slug", slug)
+    .maybeSingle();
+  if (!p || !p.is_public) {
+    return new Response("Preview not found", { status: 404, headers: { "Content-Type": "text/plain" } });
+  }
+  const { data: page } = await (supabaseAdmin as any)
+    .from("project_pages")
+    .select("html")
+    .eq("project_id", p.id)
+    .eq("path", path)
+    .maybeSingle();
+  const html = page?.html ?? (path === "/" ? p.html : null);
+  if (!html) return new Response("Page not found", { status: 404, headers: { "Content-Type": "text/plain" } });
+  return new Response(html, { status: 200, headers: { "Content-Type": "text/html; charset=utf-8", "Cache-Control": "no-store" } });
+}
 
 export const Route = createFileRoute("/p/$slug/$")({
-  loader: async ({ params }) => {
-    try {
-      const path = "/" + (params._splat ?? "");
-      return await getPublicProject({ data: { slug: params.slug, path } });
-    } catch {
-      throw notFound();
-    }
-  },
-  head: ({ loaderData }) => ({
-    meta: [
-      { title: loaderData?.title ? `${loaderData.title} — ${loaderData.name}` : (loaderData?.name ?? "Preview") },
-      { name: "description", content: "Live site built with Architeq AI Studio." },
-    ],
-  }),
-  notFoundComponent: () => (
-    <div style={{ minHeight: "100vh", display: "grid", placeItems: "center", fontFamily: "system-ui" }}>
-      <div style={{ textAlign: "center" }}>
-        <p style={{ fontSize: 12, letterSpacing: 2, textTransform: "uppercase", color: "#888" }}>404</p>
-        <h1>Page not found</h1>
-      </div>
-    </div>
-  ),
-  errorComponent: () => (
-    <div style={{ minHeight: "100vh", display: "grid", placeItems: "center", fontFamily: "system-ui" }}>
-      Unable to load preview.
-    </div>
-  ),
-  component: () => {
-    const { html } = Route.useLoaderData();
-    // Server-rendered raw HTML — set as document
-    return <div dangerouslySetInnerHTML={{ __html: html }} />;
+  server: {
+    handlers: {
+      GET: async ({ params }) => serve(params.slug, "/" + (params._splat ?? "")),
+    },
   },
 });
