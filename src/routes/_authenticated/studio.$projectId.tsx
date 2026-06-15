@@ -2,8 +2,9 @@ import { createFileRoute, Link, useRouter } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import {
-  getProject, generateSite, togglePublic, restoreVersion,
+  getProject, generateSite, togglePublic, restoreVersion, deletePage,
 } from "@/lib/projects.functions";
+import { pushToGithub, deployToVercel } from "@/lib/deployments.functions";
 import { uploadAsset, deleteAsset } from "@/lib/assets.functions";
 import { listSkills, createSkill, toggleProjectSkill, deleteSkill } from "@/lib/skills.functions";
 import { useEffect, useRef, useState } from "react";
@@ -11,6 +12,7 @@ import {
   ArrowLeft, Send, Loader2, Sparkles, Monitor, Smartphone,
   Code, Eye, Download, ExternalLink, Upload, Image as ImageIcon,
   Trash2, History, Share2, Check, Copy, Wand2, Plus, X, Zap,
+  FileCode, Rocket, Github, Globe,
 } from "lucide-react";
 import { toast } from "sonner";
 import { formatDistanceToNow } from "date-fns";
@@ -20,7 +22,7 @@ export const Route = createFileRoute("/_authenticated/studio/$projectId")({
   component: Studio,
 });
 
-type Panel = null | "assets" | "skills" | "versions" | "share";
+type Panel = null | "assets" | "skills" | "versions" | "share" | "pages" | "deploy";
 
 function Studio() {
   const { projectId } = Route.useParams();

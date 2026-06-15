@@ -14,6 +14,7 @@ import { Route as AuthenticatedRouteRouteImport } from './routes/_authenticated/
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as PSlugRouteImport } from './routes/p.$slug'
 import { Route as AuthenticatedDashboardRouteImport } from './routes/_authenticated/dashboard'
+import { Route as PSlugSplatRouteImport } from './routes/p.$slug.$'
 import { Route as AuthenticatedStudioProjectIdRouteImport } from './routes/_authenticated/studio.$projectId'
 
 const AuthRoute = AuthRouteImport.update({
@@ -40,6 +41,11 @@ const AuthenticatedDashboardRoute = AuthenticatedDashboardRouteImport.update({
   path: '/dashboard',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
+const PSlugSplatRoute = PSlugSplatRouteImport.update({
+  id: '/$',
+  path: '/$',
+  getParentRoute: () => PSlugRoute,
+} as any)
 const AuthenticatedStudioProjectIdRoute =
   AuthenticatedStudioProjectIdRouteImport.update({
     id: '/studio/$projectId',
@@ -51,15 +57,17 @@ export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/auth': typeof AuthRoute
   '/dashboard': typeof AuthenticatedDashboardRoute
-  '/p/$slug': typeof PSlugRoute
+  '/p/$slug': typeof PSlugRouteWithChildren
   '/studio/$projectId': typeof AuthenticatedStudioProjectIdRoute
+  '/p/$slug/$': typeof PSlugSplatRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/auth': typeof AuthRoute
   '/dashboard': typeof AuthenticatedDashboardRoute
-  '/p/$slug': typeof PSlugRoute
+  '/p/$slug': typeof PSlugRouteWithChildren
   '/studio/$projectId': typeof AuthenticatedStudioProjectIdRoute
+  '/p/$slug/$': typeof PSlugSplatRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -67,14 +75,27 @@ export interface FileRoutesById {
   '/_authenticated': typeof AuthenticatedRouteRouteWithChildren
   '/auth': typeof AuthRoute
   '/_authenticated/dashboard': typeof AuthenticatedDashboardRoute
-  '/p/$slug': typeof PSlugRoute
+  '/p/$slug': typeof PSlugRouteWithChildren
   '/_authenticated/studio/$projectId': typeof AuthenticatedStudioProjectIdRoute
+  '/p/$slug/$': typeof PSlugSplatRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/auth' | '/dashboard' | '/p/$slug' | '/studio/$projectId'
+  fullPaths:
+    | '/'
+    | '/auth'
+    | '/dashboard'
+    | '/p/$slug'
+    | '/studio/$projectId'
+    | '/p/$slug/$'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/auth' | '/dashboard' | '/p/$slug' | '/studio/$projectId'
+  to:
+    | '/'
+    | '/auth'
+    | '/dashboard'
+    | '/p/$slug'
+    | '/studio/$projectId'
+    | '/p/$slug/$'
   id:
     | '__root__'
     | '/'
@@ -83,13 +104,14 @@ export interface FileRouteTypes {
     | '/_authenticated/dashboard'
     | '/p/$slug'
     | '/_authenticated/studio/$projectId'
+    | '/p/$slug/$'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   AuthenticatedRouteRoute: typeof AuthenticatedRouteRouteWithChildren
   AuthRoute: typeof AuthRoute
-  PSlugRoute: typeof PSlugRoute
+  PSlugRoute: typeof PSlugRouteWithChildren
 }
 
 declare module '@tanstack/react-router' {
@@ -129,6 +151,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedDashboardRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
+    '/p/$slug/$': {
+      id: '/p/$slug/$'
+      path: '/$'
+      fullPath: '/p/$slug/$'
+      preLoaderRoute: typeof PSlugSplatRouteImport
+      parentRoute: typeof PSlugRoute
+    }
     '/_authenticated/studio/$projectId': {
       id: '/_authenticated/studio/$projectId'
       path: '/studio/$projectId'
@@ -152,11 +181,21 @@ const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
 const AuthenticatedRouteRouteWithChildren =
   AuthenticatedRouteRoute._addFileChildren(AuthenticatedRouteRouteChildren)
 
+interface PSlugRouteChildren {
+  PSlugSplatRoute: typeof PSlugSplatRoute
+}
+
+const PSlugRouteChildren: PSlugRouteChildren = {
+  PSlugSplatRoute: PSlugSplatRoute,
+}
+
+const PSlugRouteWithChildren = PSlugRoute._addFileChildren(PSlugRouteChildren)
+
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   AuthenticatedRouteRoute: AuthenticatedRouteRouteWithChildren,
   AuthRoute: AuthRoute,
-  PSlugRoute: PSlugRoute,
+  PSlugRoute: PSlugRouteWithChildren,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
