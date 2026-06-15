@@ -38,11 +38,15 @@ function Studio() {
   const createSk = useServerFn(createSkill);
   const toggleSk = useServerFn(toggleProjectSkill);
   const delSk = useServerFn(deleteSkill);
+  const delPage = useServerFn(deletePage);
+  const ghPush = useServerFn(pushToGithub);
+  const vercelDeploy = useServerFn(deployToVercel);
 
   const [input, setInput] = useState("");
   const [device, setDevice] = useState<"desktop" | "mobile">("desktop");
   const [tab, setTab] = useState<"preview" | "code">("preview");
   const [panel, setPanel] = useState<Panel>(null);
+  const [previewPath, setPreviewPath] = useState<string>("/");
   const scrollRef = useRef<HTMLDivElement>(null);
 
   const { data, isLoading } = useQuery({
