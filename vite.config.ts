@@ -6,10 +6,17 @@
 // You can pass additional config via defineConfig({ vite: { ... }, etc... }) if needed.
 import { defineConfig } from "@lovable.dev/vite-tanstack-config";
 
+// When deploying outside the Lovable sandbox (Vercel / Netlify / Node), the
+// wrapper otherwise skips nitro entirely and the build produces no server
+// output. Honor NITRO_PRESET so `NITRO_PRESET=vercel npm run build` works on
+// Vercel and `NITRO_PRESET=netlify npm run build` works on Netlify.
+const preset = process.env.NITRO_PRESET;
+
 export default defineConfig({
   tanstackStart: {
     // Redirect TanStack Start's bundled server entry to src/server.ts (our SSR error wrapper).
     // nitro/vite builds from this
     server: { entry: "server" },
   },
+  ...(preset ? { nitro: { preset } } : {}),
 });
