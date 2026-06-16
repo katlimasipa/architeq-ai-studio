@@ -1,0 +1,17 @@
+[build]
+  command = "NITRO_PRESET=netlify npm run build"
+  publish = "dist/client"
+
+[build.environment]
+  NODE_VERSION = "20"
+  NITRO_PRESET = "netlify"
+
+[functions]
+  directory = ".netlify/functions-internal"
+  node_bundler = "esbuild"
+
+# SPA fallback for client-side routing if functions are not present
+[[redirects]]
+  from = "/*"
+  to = "/index.html"
+  status = 200
