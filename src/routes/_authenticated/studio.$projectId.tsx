@@ -214,24 +214,24 @@ function Studio() {
               <ArrowLeft className="size-4" />
             </button>
             <Link to="/" className="hidden sm:flex items-center gap-2">
-              <div className="size-6 rounded-md bg-gradient-to-br from-ember to-violet" />
+              <div className="size-6 rounded-md bg-foreground" />
             </Link>
             <span className="text-sm font-medium truncate">{data?.project.name}</span>
             {data?.project.version ? (
               <span className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground border border-border rounded-full px-2 py-0.5">v{data.project.version}</span>
             ) : null}
             {activeSkills.length > 0 && (
-              <span className="hidden md:inline-flex items-center gap-1 text-[10px] uppercase tracking-wider text-ember border border-ember/30 rounded-full px-2 py-0.5">
+              <span className="hidden md:inline-flex items-center gap-1 text-[10px] uppercase tracking-wider text-leaf border border-ember/30 rounded-full px-2 py-0.5">
                 <Zap className="size-3" /> {activeSkills.length} skill{activeSkills.length > 1 ? "s" : ""}
               </span>
             )}
           </div>
 
           <div className="flex items-center gap-1 rounded-full border border-border bg-surface/40 p-1">
-            <button onClick={() => setTab("preview")} className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs ${tab === "preview" ? "bg-foreground text-background" : "text-muted-foreground hover:text-foreground"}`}>
+            <button onClick={() => setTab("preview")} className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs ${tab === "preview" ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground"}`}>
               <Eye className="size-3" /> Preview
             </button>
-            <button onClick={() => setTab("code")} className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs ${tab === "code" ? "bg-foreground text-background" : "text-muted-foreground hover:text-foreground"}`}>
+            <button onClick={() => setTab("code")} className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs ${tab === "code" ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground"}`}>
               <Code className="size-3" /> Code
             </button>
           </div>
@@ -263,8 +263,8 @@ function Studio() {
           <div ref={scrollRef} className="flex-1 overflow-y-auto p-5 space-y-5">
             {messages.length === 0 && !gen.isPending && (
               <div className="text-center py-8">
-                <div className="size-12 rounded-2xl bg-gradient-to-br from-ember/20 to-violet/20 border border-ember/30 mx-auto mb-4 flex items-center justify-center">
-                  <Sparkles className="size-5 text-ember" />
+                <div className="size-12 rounded-2xl bg-gradient-to-br from-accent/25 to-accent/5 border border-ember/30 mx-auto mb-4 flex items-center justify-center">
+                  <Sparkles className="size-5 text-leaf" />
                 </div>
                 <p className="text-display text-2xl mb-2">Start composing.</p>
                 <p className="text-sm text-muted-foreground mx-auto mb-5">
@@ -295,7 +295,7 @@ function Studio() {
 
             {gen.isPending && (
               <div>
-                <p className="text-[10px] uppercase tracking-[0.15em] text-ember mb-1">Architeq</p>
+                <p className="text-[10px] uppercase tracking-[0.15em] text-leaf mb-1">Architeq</p>
                 <p className="text-sm text-muted-foreground inline-flex items-center gap-2">
                   <Loader2 className="size-3 animate-spin" /> Composing your site…
                 </p>
@@ -314,7 +314,7 @@ function Studio() {
                 className="w-full resize-none bg-surface border border-border rounded-xl px-4 py-3 pr-12 text-sm focus:outline-none focus:border-ember/60 transition"
                 disabled={gen.isPending}
               />
-              <button type="submit" disabled={!input.trim() || gen.isPending} className="absolute bottom-3 right-3 size-8 rounded-lg bg-foreground text-background inline-flex items-center justify-center disabled:opacity-30 hover:bg-foreground/90 transition">
+              <button type="submit" disabled={!input.trim() || gen.isPending} className="absolute bottom-3 right-3 size-8 rounded-lg bg-primary text-primary-foreground inline-flex items-center justify-center disabled:opacity-30 hover:bg-primary/90 transition">
                 <Send className="size-3.5" />
               </button>
             </div>
@@ -366,7 +366,7 @@ function Studio() {
                   )
                 ) : (
                   <div className="m-auto text-center text-muted-foreground">
-                    <Sparkles className="size-6 mx-auto mb-3 text-ember" />
+                    <Sparkles className="size-6 mx-auto mb-3 text-leaf" />
                     <p className="text-display text-2xl mb-1">Your site appears here.</p>
                     <p className="text-sm">Send a prompt to begin.</p>
                   </div>
@@ -458,7 +458,7 @@ function PanelBtn({ icon, label, active, onClick, badge }: { icon: React.ReactNo
     >
       {icon}
       {badge ? (
-        <span className="absolute -top-1 -right-1 text-[9px] font-mono bg-ember text-background rounded-full size-4 flex items-center justify-center">
+        <span className="absolute -top-1 -right-1 text-[9px] font-mono bg-accent text-accent-foreground rounded-full size-4 flex items-center justify-center">
           {badge}
         </span>
       ) : null}
@@ -477,7 +477,7 @@ function AssetsPanel({ assets, onUpload, onDelete, uploading }: {
       </p>
       <div className="flex gap-1 p-1 rounded-lg border border-border bg-surface/40">
         {(["logo", "reference", "image"] as const).map((k) => (
-          <button key={k} onClick={() => setKind(k)} className={`flex-1 text-xs py-1.5 rounded capitalize ${kind === k ? "bg-foreground text-background" : "text-muted-foreground hover:text-foreground"}`}>{k}</button>
+          <button key={k} onClick={() => setKind(k)} className={`flex-1 text-xs py-1.5 rounded capitalize ${kind === k ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground"}`}>{k}</button>
         ))}
       </div>
       <label className={`block border-2 border-dashed border-border rounded-xl p-6 text-center cursor-pointer hover:border-ember/60 transition ${uploading ? "opacity-50 pointer-events-none" : ""}`}>
@@ -496,7 +496,7 @@ function AssetsPanel({ assets, onUpload, onDelete, uploading }: {
             <img src={a.url} alt={a.name} className="size-10 rounded object-cover bg-white" />
             <div className="flex-1 min-w-0">
               <p className="text-xs truncate">{a.name}</p>
-              <p className="text-[10px] uppercase tracking-wider text-ember">{a.kind}</p>
+              <p className="text-[10px] uppercase tracking-wider text-leaf">{a.kind}</p>
             </div>
             <button onClick={() => onDelete(a.id)} className="opacity-0 group-hover:opacity-100 p-1 text-muted-foreground hover:text-destructive">
               <Trash2 className="size-3.5" />
@@ -532,7 +532,7 @@ function SkillsPanel({ all, active, onToggle, onCreate, onDelete }: {
           <textarea placeholder="Instructions (rules, patterns, standards the AI should follow)" rows={6} value={form.instructions} onChange={(e) => setForm({ ...form, instructions: e.target.value })} className="w-full bg-background border border-border rounded px-2 py-1.5 text-xs resize-none" />
           <button
             onClick={() => { if (form.name && form.instructions.length >= 20) { onCreate(form); setForm({ name: "", description: "", instructions: "" }); setCreating(false); } else { toast.error("Name + 20+ char instructions required"); } }}
-            className="w-full bg-foreground text-background text-xs py-1.5 rounded"
+            className="w-full bg-primary text-primary-foreground text-xs py-1.5 rounded"
           >Create</button>
         </div>
       )}
@@ -545,13 +545,13 @@ function SkillsPanel({ all, active, onToggle, onCreate, onDelete }: {
                 <div className="min-w-0 flex-1">
                   <p className="text-sm font-medium flex items-center gap-1.5">
                     {s.name}
-                    {s.is_global && <span className="text-[9px] uppercase tracking-wider text-ember">Built-in</span>}
+                    {s.is_global && <span className="text-[9px] uppercase tracking-wider text-leaf">Built-in</span>}
                   </p>
                   {s.description && <p className="text-xs text-muted-foreground mt-0.5">{s.description}</p>}
                 </div>
                 <button
                   onClick={() => onToggle(s.id, !isActive)}
-                  className={`shrink-0 text-[10px] uppercase tracking-wider px-2 py-1 rounded ${isActive ? "bg-ember text-background" : "border border-border text-muted-foreground hover:text-foreground"}`}
+                  className={`shrink-0 text-[10px] uppercase tracking-wider px-2 py-1 rounded ${isActive ? "bg-accent text-accent-foreground" : "border border-border text-muted-foreground hover:text-foreground"}`}
                 >
                   {isActive ? <span className="inline-flex items-center gap-1"><Check className="size-3" /> On</span> : "Off"}
                 </button>
@@ -585,7 +585,7 @@ function VersionsPanel({ versions, onRestore, restoring }: { versions: any[]; on
             <button
               onClick={() => onRestore(v.id)}
               disabled={restoring}
-              className="text-[10px] uppercase tracking-wider px-2 py-1 rounded border border-border hover:border-ember/60 hover:text-ember transition disabled:opacity-50"
+              className="text-[10px] uppercase tracking-wider px-2 py-1 rounded border border-border hover:border-ember/60 hover:text-leaf transition disabled:opacity-50"
             >
               Restore
             </button>
@@ -612,7 +612,7 @@ function SharePanel({ shareUrl, isPublic, onTogglePublic }: { shareUrl: string; 
         <label className="text-[10px] uppercase tracking-[0.15em] text-muted-foreground">Public preview link</label>
         <div className="flex gap-2">
           <input readOnly value={shareUrl} className="flex-1 bg-surface border border-border rounded-lg px-3 py-2 text-xs font-mono" />
-          <button onClick={copy} className="shrink-0 px-3 rounded-lg bg-foreground text-background text-xs inline-flex items-center gap-1">
+          <button onClick={copy} className="shrink-0 px-3 rounded-lg bg-primary text-primary-foreground text-xs inline-flex items-center gap-1">
             {copied ? <Check className="size-3.5" /> : <Copy className="size-3.5" />}
           </button>
         </div>
@@ -624,7 +624,7 @@ function SharePanel({ shareUrl, isPublic, onTogglePublic }: { shareUrl: string; 
         </div>
         <input type="checkbox" checked={isPublic} onChange={(e) => onTogglePublic(e.target.checked)} className="size-4 accent-ember" />
       </label>
-      <a href={shareUrl} target="_blank" rel="noreferrer" className="block text-center text-xs text-ember hover:underline">
+      <a href={shareUrl} target="_blank" rel="noreferrer" className="block text-center text-xs text-leaf hover:underline">
         Open preview in new tab →
       </a>
     </div>
@@ -713,7 +713,7 @@ function DeployPanel({ githubUrl, vercelUrl, defaultRepoName, onPushGithub, onDe
           <p className="text-sm font-medium">GitHub repository</p>
         </div>
         {githubUrl ? (
-          <a href={githubUrl} target="_blank" rel="noreferrer" className="block text-xs text-ember truncate hover:underline">{githubUrl}</a>
+          <a href={githubUrl} target="_blank" rel="noreferrer" className="block text-xs text-leaf truncate hover:underline">{githubUrl}</a>
         ) : (
           <p className="text-xs text-muted-foreground">No repo connected yet.</p>
         )}
@@ -730,7 +730,7 @@ function DeployPanel({ githubUrl, vercelUrl, defaultRepoName, onPushGithub, onDe
         <button
           onClick={() => onPushGithub(repoName, isPrivate)}
           disabled={pushing || !repoName}
-          className="w-full inline-flex items-center justify-center gap-2 text-xs py-2 rounded-lg bg-foreground text-background disabled:opacity-50"
+          className="w-full inline-flex items-center justify-center gap-2 text-xs py-2 rounded-lg bg-primary text-primary-foreground disabled:opacity-50"
         >
           {pushing ? <Loader2 className="size-3.5 animate-spin" /> : <Github className="size-3.5" />}
           {githubUrl ? "Push update" : "Create repo & push"}
@@ -743,14 +743,14 @@ function DeployPanel({ githubUrl, vercelUrl, defaultRepoName, onPushGithub, onDe
           <p className="text-sm font-medium">Vercel deployment</p>
         </div>
         {vercelUrl ? (
-          <a href={vercelUrl} target="_blank" rel="noreferrer" className="block text-xs text-ember truncate hover:underline">{vercelUrl}</a>
+          <a href={vercelUrl} target="_blank" rel="noreferrer" className="block text-xs text-leaf truncate hover:underline">{vercelUrl}</a>
         ) : (
           <p className="text-xs text-muted-foreground">Not deployed yet.</p>
         )}
         <button
           onClick={onDeployVercel}
           disabled={deploying}
-          className="w-full inline-flex items-center justify-center gap-2 text-xs py-2 rounded-lg bg-gradient-to-br from-ember to-violet text-background disabled:opacity-50"
+          className="w-full inline-flex items-center justify-center gap-2 text-xs py-2 rounded-lg bg-primary text-primary-foreground disabled:opacity-50"
         >
           {deploying ? <Loader2 className="size-3.5 animate-spin" /> : <Rocket className="size-3.5" />}
           {vercelUrl ? "Redeploy to Vercel" : "Deploy to Vercel"}
