@@ -5,14 +5,14 @@
 @custom-variant dark (&:is(.dark *));
 
 @theme inline {
-  --font-display: "Spectral", ui-serif, Georgia, serif;
-  --font-sans: "Geist", ui-sans-serif, system-ui, sans-serif;
+  --font-display: "Gabarito", ui-sans-serif, system-ui, sans-serif;
+  --font-sans: "Onest", ui-sans-serif, system-ui, sans-serif;
   --font-mono: "JetBrains Mono", ui-monospace, monospace;
 
-  --radius-sm: 6px;
-  --radius-md: 10px;
-  --radius-lg: 16px;
-  --radius-xl: 24px;
+  --radius-sm: 10px;
+  --radius-md: 14px;
+  --radius-lg: 20px;
+  --radius-xl: 28px;
 
   --color-background: var(--background);
   --color-foreground: var(--foreground);
@@ -26,34 +26,37 @@
   --color-accent: var(--accent);
   --color-accent-foreground: var(--accent-foreground);
   --color-ember: var(--ember);
+  --color-leaf: var(--leaf);
   --color-violet: var(--violet);
-  --color-card: var(--surface);
+  --color-card: var(--surface-elevated);
   --color-card-foreground: var(--foreground);
   --color-popover: var(--surface-elevated);
   --color-popover-foreground: var(--foreground);
   --color-input: var(--border);
   --color-ring: var(--accent);
-  --color-secondary: var(--surface-elevated);
+  --color-secondary: var(--muted);
   --color-secondary-foreground: var(--foreground);
-  --color-destructive: oklch(0.62 0.22 25);
+  --color-destructive: oklch(0.58 0.2 28);
   --color-destructive-foreground: oklch(0.98 0 0);
 }
 
+/* Light sage canvas, warm-white panels, charcoal ink, chartreuse accent */
 :root {
-  --background: oklch(0.13 0.01 60);
-  --foreground: oklch(0.96 0.01 80);
-  --surface: oklch(0.16 0.012 60);
-  --surface-elevated: oklch(0.19 0.014 60);
-  --border: oklch(0.28 0.012 60 / 60%);
-  --muted: oklch(0.22 0.012 60);
-  --muted-foreground: oklch(0.68 0.015 70);
-  --primary: oklch(0.96 0.01 80);
-  --primary-foreground: oklch(0.13 0.01 60);
-  --accent: oklch(0.78 0.16 65);
-  --accent-foreground: oklch(0.13 0.01 60);
-  --ember: oklch(0.74 0.18 55);
-  --violet: oklch(0.62 0.22 295);
-  --radius: 12px;
+  --background: oklch(0.8 0.028 135);          /* sage canvas */
+  --foreground: oklch(0.22 0.014 95);          /* warm charcoal ink */
+  --surface: oklch(0.965 0.008 115);           /* warm off-white panel */
+  --surface-elevated: oklch(0.995 0.004 110);  /* white cards */
+  --border: oklch(0.87 0.014 125 / 80%);
+  --muted: oklch(0.915 0.012 120);
+  --muted-foreground: oklch(0.5 0.016 125);
+  --primary: oklch(0.22 0.014 95);             /* dark pill buttons */
+  --primary-foreground: oklch(0.97 0.006 110);
+  --accent: oklch(0.9 0.17 118);               /* chartreuse */
+  --accent-foreground: oklch(0.22 0.014 95);
+  --ember: oklch(0.9 0.17 118);                /* legacy alias = accent */
+  --leaf: oklch(0.42 0.08 150);                /* deep green accent text */
+  --violet: oklch(0.45 0.07 150);
+  --radius: 16px;
 }
 
 @layer base {
@@ -63,38 +66,41 @@
     background-color: var(--color-background);
     color: var(--color-foreground);
     font-family: var(--font-sans);
-    font-feature-settings: "ss01", "cv11";
     -webkit-font-smoothing: antialiased;
-    background-image:
-      radial-gradient(ellipse 80% 50% at 50% -10%, oklch(0.78 0.16 65 / 0.08), transparent 60%),
-      radial-gradient(ellipse 60% 40% at 90% 100%, oklch(0.62 0.22 295 / 0.06), transparent 60%);
   }
-  ::selection { background: var(--ember); color: var(--background); }
+  ::selection { background: var(--accent); color: var(--foreground); }
+}
+
+/* The floating app panel — sage margin around a warm-white rounded surface */
+@utility app-frame {
+  border-radius: 28px;
+  background: var(--color-surface);
+  box-shadow:
+    0 1px 2px oklch(0.3 0.02 120 / 8%),
+    0 24px 60px -24px oklch(0.3 0.03 130 / 25%);
 }
 
 @utility text-display {
   font-family: var(--font-display);
-  font-weight: 400;
-  letter-spacing: -0.02em;
-  line-height: 0.95;
+  font-weight: 500;
+  letter-spacing: -0.03em;
+  line-height: 1.02;
 }
 
-@utility grain {
-  position: relative;
-  &::after {
-    content: "";
-    position: absolute;
-    inset: 0;
-    pointer-events: none;
-    opacity: 0.04;
-    mix-blend-mode: overlay;
-    background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
-  }
+@utility ink-tile {
+  background: var(--primary);
+  color: var(--primary-foreground);
 }
 
 @utility hairline {
   background-image: linear-gradient(to right, transparent, var(--color-border), transparent);
   height: 1px;
+}
+
+/* Dark vertical rail, as in the reference dashboard */
+@utility rail {
+  background: var(--primary);
+  color: oklch(0.75 0.01 110);
 }
 
 @keyframes float-slow {
