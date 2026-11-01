@@ -55,7 +55,7 @@ function Dashboard() {
       <header className="border-b border-border/40 backdrop-blur-xl bg-background/60 sticky top-0 z-40">
         <div className="mx-auto max-w-7xl px-6 h-16 flex items-center justify-between">
           <Link to="/" className="flex items-center gap-2.5">
-            <div className="size-7 rounded-md bg-gradient-to-br from-ember to-violet" />
+            <div className="size-7 rounded-md bg-foreground" />
             <span className="text-display text-xl">Architeq</span>
           </Link>
           <div className="flex items-center gap-3">
@@ -72,13 +72,13 @@ function Dashboard() {
       <main className="mx-auto max-w-7xl px-6 py-16">
         <div className="flex items-end justify-between flex-wrap gap-6 mb-12">
           <div>
-            <p className="text-xs uppercase tracking-[0.2em] text-ember mb-3">Your studio</p>
+            <p className="text-xs uppercase tracking-[0.2em] text-leaf mb-3">Your studio</p>
             <h1 className="text-display text-5xl md:text-6xl">Projects</h1>
           </div>
           {!creating && (
             <button
               onClick={() => setCreating(true)}
-              className="inline-flex items-center gap-2 rounded-full bg-foreground text-background px-5 py-3 text-sm font-medium hover:bg-foreground/90 transition"
+              className="inline-flex items-center gap-2 rounded-full bg-primary text-primary-foreground px-5 py-3 text-sm font-medium hover:bg-primary/90 transition"
             >
               <Plus className="size-4" /> New project
             </button>
@@ -102,7 +102,7 @@ function Dashboard() {
               <button
                 type="submit"
                 disabled={!name.trim() || createMut.isPending}
-                className="inline-flex items-center gap-2 rounded-lg bg-foreground text-background px-5 py-3 text-sm font-medium disabled:opacity-50"
+                className="inline-flex items-center gap-2 rounded-lg bg-primary text-primary-foreground px-5 py-3 text-sm font-medium disabled:opacity-50"
               >
                 {createMut.isPending ? <Loader2 className="size-4 animate-spin" /> : <Sparkles className="size-4" />}
                 Create
@@ -128,7 +128,7 @@ function Dashboard() {
             <p className="text-muted-foreground mb-6">Spin up your first project — describe it, ship it.</p>
             <button
               onClick={() => setCreating(true)}
-              className="inline-flex items-center gap-2 rounded-full bg-foreground text-background px-5 py-3 text-sm font-medium"
+              className="inline-flex items-center gap-2 rounded-full bg-primary text-primary-foreground px-5 py-3 text-sm font-medium"
             >
               <Sparkles className="size-4" /> Start building
             </button>
@@ -145,13 +145,13 @@ function Dashboard() {
                   params={{ projectId: p.id }}
                   className="block"
                 >
-                  <h3 className="text-display text-2xl mb-2 group-hover:text-ember transition">{p.name}</h3>
+                  <h3 className="text-display text-2xl mb-2 group-hover:text-leaf transition">{p.name}</h3>
                   <p className="text-sm text-muted-foreground line-clamp-2 mb-6 min-h-[2.5rem]">
                     {p.prompt || "No prompt yet — open to start building."}
                   </p>
                   <div className="flex items-center justify-between text-xs text-muted-foreground font-mono">
                     <span>edited {formatDistanceToNow(new Date(p.updated_at))} ago</span>
-                    <ArrowUpRight className="size-4 group-hover:text-ember transition" />
+                    <ArrowUpRight className="size-4 group-hover:text-leaf transition" />
                   </div>
                 </Link>
                 <button

@@ -107,7 +107,7 @@ function AuthPage() {
             <button
               type="submit"
               disabled={busy}
-              className="w-full inline-flex items-center justify-center gap-2 rounded-lg bg-foreground text-background px-4 py-3 text-sm font-medium hover:bg-foreground/90 transition disabled:opacity-50"
+              className="w-full inline-flex items-center justify-center gap-2 rounded-lg bg-primary text-primary-foreground px-4 py-3 text-sm font-medium hover:bg-primary/90 transition disabled:opacity-50"
             >
               {busy ? <Loader2 className="size-4 animate-spin" /> : <>
                 {mode === "signup" ? "Create account" : "Sign in"} <ArrowRight className="size-4" />
@@ -119,7 +119,7 @@ function AuthPage() {
             {mode === "signup" ? "Already have an account?" : "New here?"}{" "}
             <button
               onClick={() => setMode(mode === "signup" ? "signin" : "signup")}
-              className="text-foreground hover:text-ember transition underline-offset-4 hover:underline"
+              className="text-foreground hover:text-leaf transition underline-offset-4 hover:underline"
             >
               {mode === "signup" ? "Sign in" : "Create account"}
             </button>

@@ -40,7 +40,7 @@ function Nav() {
     <header className="fixed top-0 inset-x-0 z-50 backdrop-blur-xl bg-background/60 border-b border-border/40">
       <div className="mx-auto max-w-7xl px-6 h-16 flex items-center justify-between">
         <a href="#" className="flex items-center gap-2.5">
-          <div className="size-7 rounded-md bg-gradient-to-br from-ember to-violet relative overflow-hidden">
+          <div className="size-7 rounded-md bg-foreground relative overflow-hidden">
             <div className="absolute inset-[2px] rounded-[5px] bg-background/80 flex items-center justify-center">
               <div className="size-2 rounded-sm bg-foreground" />
             </div>
@@ -57,7 +57,7 @@ function Nav() {
         </nav>
         <div className="flex items-center gap-3">
           <a href="/auth" className="hidden sm:inline text-sm text-muted-foreground hover:text-foreground">Sign in</a>
-          <a href="/auth" className="group inline-flex items-center gap-1.5 rounded-full bg-foreground text-background px-4 py-2 text-sm font-medium hover:bg-foreground/90 transition">
+          <a href="/auth" className="group inline-flex items-center gap-1.5 rounded-full bg-primary text-primary-foreground px-4 py-2 text-sm font-medium hover:bg-primary/90 transition">
             Open Studio
             <ArrowUpRight className="size-3.5 group-hover:translate-x-0.5 group-hover:-translate-y-0.5 transition" />
           </a>
@@ -90,7 +90,7 @@ function Hero() {
             Ship to production.
           </p>
           <div className="md:col-span-4 md:col-start-9 flex flex-wrap gap-3">
-            <a href="/auth" className="inline-flex items-center gap-2 rounded-full bg-foreground text-background px-5 py-3 text-sm font-medium hover:bg-foreground/90 transition">
+            <a href="/auth" className="inline-flex items-center gap-2 rounded-full bg-primary text-primary-foreground px-5 py-3 text-sm font-medium hover:bg-primary/90 transition">
               <Sparkles className="size-4" />
               Start building
             </a>
@@ -163,7 +163,7 @@ function Capabilities() {
       <div className="mx-auto max-w-7xl">
         <div className="flex items-end justify-between flex-wrap gap-6 mb-16">
           <div>
-            <p className="text-xs uppercase tracking-[0.2em] text-ember mb-4">01 — Capabilities</p>
+            <p className="text-xs uppercase tracking-[0.2em] text-leaf mb-4">01 — Capabilities</p>
             <h2 className="text-display text-5xl md:text-7xl max-w-3xl">
               A complete studio, <br />
               <span className="italic text-muted-foreground">not just a chatbot.</span>
@@ -181,7 +181,7 @@ function Capabilities() {
               className={`group relative rounded-2xl border border-border/60 bg-surface/40 backdrop-blur p-7 hover:bg-surface-elevated transition overflow-hidden ${item.span ?? ""}`}
             >
               <div className="flex items-start justify-between mb-12">
-                <item.icon className="size-5 text-ember" strokeWidth={1.5} />
+                <item.icon className="size-5 text-leaf" strokeWidth={1.5} />
                 <span className="font-mono text-[10px] text-muted-foreground">0{i + 1}</span>
               </div>
               <h3 className="text-display text-2xl mb-2">{item.title}</h3>
@@ -208,7 +208,7 @@ function Prompt() {
   return (
     <section id="prompt" className="px-6 py-32">
       <div className="mx-auto max-w-5xl">
-        <p className="text-xs uppercase tracking-[0.2em] text-ember mb-4 text-center">02 — The Composer</p>
+        <p className="text-xs uppercase tracking-[0.2em] text-leaf mb-4 text-center">02 — The Composer</p>
         <h2 className="text-display text-5xl md:text-7xl text-center mb-4">
           One prompt away.
         </h2>
@@ -227,9 +227,9 @@ function Prompt() {
             </div>
             <div className="font-mono text-base leading-relaxed">
               <span className="text-muted-foreground">› </span>
-              Build a <span className="text-ember">conversion-focused</span> landing page for a B2B fintech
-              with <span className="text-ember">editorial typography</span>, a working pricing page, blog,
-              and a contact form wired to <span className="text-ember">Supabase</span>.
+              Build a <span className="text-leaf">conversion-focused</span> landing page for a B2B fintech
+              with <span className="text-leaf">editorial typography</span>, a working pricing page, blog,
+              and a contact form wired to <span className="text-leaf">Supabase</span>.
             </div>
             <div className="mt-6 flex flex-wrap gap-2">
               {["+ Add brand kit", "+ Reference URL", "+ Figma frame", "+ Existing repo"].map((t) => (
@@ -243,7 +243,7 @@ function Prompt() {
                 <Command className="size-3.5" />
                 <span>Plan → Generate → Deploy</span>
               </div>
-              <button className="inline-flex items-center gap-2 rounded-full bg-foreground text-background px-5 py-2.5 text-sm font-medium hover:bg-foreground/90 transition">
+              <button className="inline-flex items-center gap-2 rounded-full bg-primary text-primary-foreground px-5 py-2.5 text-sm font-medium hover:bg-primary/90 transition">
                 Compose
                 <Sparkles className="size-4" />
               </button>
@@ -270,7 +270,7 @@ function Agents() {
       <div className="mx-auto max-w-7xl">
         <div className="grid md:grid-cols-12 gap-12 mb-16">
           <div className="md:col-span-5">
-            <p className="text-xs uppercase tracking-[0.2em] text-ember mb-4">03 — Multi-agent</p>
+            <p className="text-xs uppercase tracking-[0.2em] text-leaf mb-4">03 — Multi-agent</p>
             <h2 className="text-display text-5xl md:text-6xl">
               Seven specialists. <br />
               <span className="italic text-muted-foreground">One orchestrator.</span>
@@ -288,7 +288,7 @@ function Agents() {
               <span className="md:col-span-2 font-mono text-xs text-muted-foreground pt-1">{a.n} / agent</span>
               <h3 className="md:col-span-4 text-display text-3xl group-hover:translate-x-1 transition">{a.name}</h3>
               <p className="md:col-span-5 text-muted-foreground self-center">{a.desc}</p>
-              <ArrowUpRight className="md:col-span-1 size-5 text-muted-foreground group-hover:text-ember justify-self-end self-center transition" />
+              <ArrowUpRight className="md:col-span-1 size-5 text-muted-foreground group-hover:text-leaf justify-self-end self-center transition" />
             </div>
           ))}
         </div>
@@ -307,7 +307,7 @@ function Workflow() {
   return (
     <section id="workflow" className="px-6 py-32">
       <div className="mx-auto max-w-7xl">
-        <p className="text-xs uppercase tracking-[0.2em] text-ember mb-4">04 — Workflow</p>
+        <p className="text-xs uppercase tracking-[0.2em] text-leaf mb-4">04 — Workflow</p>
         <h2 className="text-display text-5xl md:text-7xl mb-20 max-w-4xl">
           From idea to production <br />
           in <span className="italic">four moves.</span>
@@ -335,7 +335,7 @@ function Stack() {
     <section className="px-6 py-32 border-t border-border/40">
       <div className="mx-auto max-w-7xl grid md:grid-cols-2 gap-20 items-center">
         <div>
-          <p className="text-xs uppercase tracking-[0.2em] text-ember mb-4">05 — Under the hood</p>
+          <p className="text-xs uppercase tracking-[0.2em] text-leaf mb-4">05 — Under the hood</p>
           <h2 className="text-display text-5xl md:text-6xl mb-6">
             Boring tech. <br />
             <span className="italic text-muted-foreground">Beautiful output.</span>
@@ -365,7 +365,7 @@ function Stack() {
             <div>› build complete</div>
             <div>› 0 errors · 0 warnings</div>
             <div>› lighthouse: 98 / 100 / 100 / 96</div>
-            <div className="text-ember">› ready for deploy ↗</div>
+            <div className="text-leaf">› ready for deploy ↗</div>
           </div>
         </div>
       </div>
@@ -382,7 +382,7 @@ function Pricing() {
   return (
     <section id="pricing" className="px-6 py-32">
       <div className="mx-auto max-w-7xl">
-        <p className="text-xs uppercase tracking-[0.2em] text-ember mb-4">06 — Pricing</p>
+        <p className="text-xs uppercase tracking-[0.2em] text-leaf mb-4">06 — Pricing</p>
         <h2 className="text-display text-5xl md:text-7xl mb-16 max-w-3xl">
           Priced like software. <br />
           <span className="italic text-muted-foreground">Valued like an agency.</span>
@@ -395,7 +395,7 @@ function Pricing() {
               className={`relative rounded-2xl p-8 border ${p.highlight ? "border-ember/40 bg-gradient-to-b from-ember/5 to-transparent" : "border-border/60 bg-surface/40"} backdrop-blur`}
             >
               {p.highlight && (
-                <span className="absolute -top-3 left-8 text-[10px] uppercase tracking-[0.2em] bg-ember text-background px-2 py-1 rounded-full">
+                <span className="absolute -top-3 left-8 text-[10px] uppercase tracking-[0.2em] bg-accent text-accent-foreground px-2 py-1 rounded-full">
                   Most popular
                 </span>
               )}
@@ -406,13 +406,13 @@ function Pricing() {
                 <span className="text-display text-6xl">{p.price}</span>
                 {p.price !== "Custom" && <span className="text-muted-foreground text-sm">/ month</span>}
               </div>
-              <button className={`w-full rounded-full py-3 text-sm font-medium transition mb-8 ${p.highlight ? "bg-foreground text-background hover:bg-foreground/90" : "border border-border hover:bg-surface-elevated"}`}>
+              <button className={`w-full rounded-full py-3 text-sm font-medium transition mb-8 ${p.highlight ? "bg-primary text-primary-foreground hover:bg-primary/90" : "border border-border hover:bg-surface-elevated"}`}>
                 {p.price === "Custom" ? "Talk to sales" : "Start free"}
               </button>
               <ul className="space-y-3 text-sm">
                 {p.features.map((f) => (
                   <li key={f} className="flex items-start gap-2 text-muted-foreground">
-                    <span className="text-ember mt-0.5">—</span>
+                    <span className="text-leaf mt-0.5">—</span>
                     {f}
                   </li>
                 ))}
@@ -437,7 +437,7 @@ function CTA() {
         <p className="text-muted-foreground text-lg max-w-xl mx-auto mb-10">
           The studio is open. Bring a prompt, a Figma frame, or just a feeling. Architeq takes it from there.
         </p>
-        <a href="/auth" className="inline-flex items-center gap-2 rounded-full bg-foreground text-background px-6 py-3.5 text-sm font-medium hover:bg-foreground/90 transition">
+        <a href="/auth" className="inline-flex items-center gap-2 rounded-full bg-primary text-primary-foreground px-6 py-3.5 text-sm font-medium hover:bg-primary/90 transition">
           Open the Studio
           <ArrowUpRight className="size-4" />
         </a>
@@ -452,7 +452,7 @@ function Footer() {
       <div className="mx-auto max-w-7xl grid md:grid-cols-5 gap-12">
         <div className="md:col-span-2">
           <div className="flex items-center gap-2.5 mb-4">
-            <div className="size-7 rounded-md bg-gradient-to-br from-ember to-violet" />
+            <div className="size-7 rounded-md bg-foreground" />
             <span className="text-display text-xl">Architeq</span>
           </div>
           <p className="text-sm text-muted-foreground max-w-xs">
@@ -467,7 +467,7 @@ function Footer() {
           <div key={c.h}>
             <p className="text-xs uppercase tracking-[0.2em] text-muted-foreground mb-4">{c.h}</p>
             <ul className="space-y-2.5 text-sm">
-              {c.l.map((i) => <li key={i}><a href="#" className="hover:text-ember transition">{i}</a></li>)}
+              {c.l.map((i) => <li key={i}><a href="#" className="hover:text-leaf transition">{i}</a></li>)}
             </ul>
           </div>
         ))}
