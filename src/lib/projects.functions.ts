@@ -490,25 +490,8 @@ export const generateSite = createServerFn({ method: "POST" })
 export const getPublicProject = createServerFn({ method: "GET" })
   .inputValidator((d: unknown) => z.object({ slug: z.string().min(1).max(64), path: z.string().optional() }).parse(d))
   .handler(async ({ data }) => {
-    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-    const { data: p, error } = await supabaseAdmin
-      .from("projects")
-      .select("id, name, html, is_public, updated_at")
-      .eq("slug", data.slug)
-      .maybeSingle();
-    if (error || !p) throw new Error("Not found");
-    if (!p.is_public) throw new Error("This preview is private");
-
-    const reqPath = data.path && data.path.length ? (data.path.startsWith("/") ? data.path : "/" + data.path) : "/";
-    const { data: page } = await (supabaseAdmin as any)
-      .from("project_pages")
-      .select("html, title, path")
-      .eq("project_id", p.id)
-      .eq("path", reqPath)
-      .maybeSingle();
-
-    const html = page?.html ?? (reqPath === "/" ? p.html : null);
-    if (!html) throw new Error("Page not found");
-
-    return { name: p.name, html, title: page?.title ?? p.name, path: reqPath, updated_at: p.updated_at };
+    const { getPublicProjectPage } = await import("@/lib/public-preview.server");
+    const page = await getPublicProjectPage(data.slug, data.path ?? "/");
+    if (!page) throw new Error("Preview not found or is private");
+    return page;
   });
