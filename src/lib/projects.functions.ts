@@ -1,4 +1,5 @@
 import { createServerFn } from "@tanstack/react-start";
+import { getRequest } from "@tanstack/react-start/server";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { z } from "zod";
 
@@ -261,8 +262,17 @@ export const generateSite = createServerFn({ method: "POST" })
     }).parse(d),
   )
   .handler(async ({ data, context }) => {
-    const apiKey = process.env.LOVABLE_API_KEY;
-    if (!apiKey) throw new Error("AI generation isn’t configured yet. Add LOVABLE_API_KEY to the Vercel project environment and redeploy.");
+    const request = getRequest();
+    const lovableApiKey = process.env.LOVABLE_API_KEY;
+    const vercelGatewayToken =
+      process.env.AI_GATEWAY_API_KEY ||
+      request?.headers.get("x-vercel-oidc-token") ||
+      process.env.VERCEL_OIDC_TOKEN;
+    if (!lovableApiKey && !vercelGatewayToken) {
+      throw new Error(
+        "AI generation needs an AI Gateway connection. On Vercel, enable Secure Backend Access (OIDC) for this project, or add AI_GATEWAY_API_KEY. LOVABLE_API_KEY is also supported.",
+      );
+    }
 
     const { data: project, error: pErr } = await context.supabase
       .from("projects")
@@ -315,10 +325,11 @@ export const generateSite = createServerFn({ method: "POST" })
 
     const system = SYSTEM_PROMPT_BASE + skillBlock + assetBlock + dnaBlock + pagesBlock;
 
-    const { createLovableAiGatewayProvider } = await import("./ai-gateway.server");
+    const { createLovableAiGatewayProvider, createVercelAiGatewayProvider } = await import("./ai-gateway.server");
     const { generateText } = await import("ai");
-    const gateway = createLovableAiGatewayProvider(apiKey);
-    const model = gateway("google/gemini-3-flash-preview");
+    const model = lovableApiKey
+      ? createLovableAiGatewayProvider(lovableApiKey)("google/gemini-3-flash-preview")
+      : createVercelAiGatewayProvider(vercelGatewayToken!)("google/gemini-2.5-flash");
 
     const contextMessages: { role: "system" | "user" | "assistant"; content: string }[] = [
       { role: "system", content: system },
@@ -342,6 +353,11 @@ export const generateSite = createServerFn({ method: "POST" })
       const err = e as { statusCode?: number; message?: string };
       if (err.statusCode === 429) throw new Error("Rate limit reached. Try again in a moment.");
       if (err.statusCode === 402) throw new Error("AI credits exhausted. Add credits in workspace settings.");
+      if (err.statusCode === 401 || err.statusCode === 403) {
+        throw new Error(
+          "The AI Gateway rejected authentication. Enable Secure Backend Access (OIDC) in Vercel or set AI_GATEWAY_API_KEY, then retry.",
+        );
+      }
       throw new Error(err.message || "Generation failed");
     }
 

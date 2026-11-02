@@ -29,10 +29,14 @@ function Integrations() {
   const items = [
     {
       name: "AI generation",
-      detail: "Build and revise sites from your prompts.",
+      detail: data?.aiProvider
+        ? `Build and revise sites using ${data.aiProvider}.`
+        : "Build and revise sites from your prompts.",
       ready: data?.ai,
       icon: Sparkles,
-      variable: "LOVABLE_API_KEY",
+      variable: "AI_GATEWAY_API_KEY or LOVABLE_API_KEY",
+      setup:
+        "Vercel deployments can authenticate with a request-scoped OIDC token. If this project does not receive one, enable Secure Backend Access (OIDC) in Vercel, or set one of the environment variables above.",
     },
     {
       name: "Supabase",
@@ -79,7 +83,7 @@ function Integrations() {
             </p>
           )}
           <div className="grid max-w-4xl gap-4 lg:grid-cols-2">
-            {items.map(({ name, detail, ready, icon: Icon, variable }) => (
+            {items.map(({ name, detail, ready, icon: Icon, variable, setup }) => (
               <article
                 key={name}
                 className="rounded-3xl border border-border bg-surface-elevated p-6"
@@ -108,16 +112,21 @@ function Integrations() {
                   <div className="rounded-2xl border border-border bg-surface p-4 text-sm">
                     <p className="mb-2 font-medium">Workspace setup</p>
                     <p className="text-xs leading-relaxed text-muted-foreground">
-                      Add <code className="rounded bg-muted px-1">{variable}</code> to the app’s
-                      server environment, then redeploy. The token stays on the server and is never
-                      shown in this page.
+                      {setup ?? (
+                        <>
+                          Add <code className="rounded bg-muted px-1">{variable}</code> to the app’s
+                          server environment, then redeploy. The token stays on the server and is
+                          never shown in this page.
+                        </>
+                      )}
                     </p>
                   </div>
                 )}
                 {ready && (
                   <p className="rounded-2xl border border-border bg-surface p-4 text-xs leading-relaxed text-muted-foreground">
-                    Ready to use from any of your projects. Connect it in a project’s Deploy panel
-                    to enable automatic updates.
+                    {name === "AI generation"
+                      ? `Ready to build and revise sites through ${data?.aiProvider ?? "the AI Gateway"}.`
+                      : "Ready to use from any of your projects. Connect it in a project’s Deploy panel to enable automatic updates."}
                   </p>
                 )}
               </article>

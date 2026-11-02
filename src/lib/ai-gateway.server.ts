@@ -7,3 +7,11 @@ export function createLovableAiGatewayProvider(apiKey: string) {
     headers: { "Lovable-API-Key": apiKey },
   });
 }
+
+export function createVercelAiGatewayProvider(token: string) {
+  return createOpenAICompatible({
+    name: "vercel-ai-gateway",
+    baseURL: "https://ai-gateway.vercel.sh/v1",
+    apiKey: token,
+  });
+}

@@ -13,9 +13,13 @@ Server-side (set in Vercel/Netlify dashboard):
 - `SUPABASE_URL`
 - `SUPABASE_PUBLISHABLE_KEY`
 - `SUPABASE_SERVICE_ROLE_KEY`
-- `LOVABLE_API_KEY`
 - `GITHUB_TOKEN`
 - `VERCEL_TOKEN`
+
+AI generation uses Vercel AI Gateway with request-scoped Vercel OIDC when Secure Backend Access is
+enabled for the project. Otherwise, set `AI_GATEWAY_API_KEY` or `LOVABLE_API_KEY`. For local
+development, link the project with the Vercel CLI and run `vercel env pull` to make a Vercel OIDC
+token available.
 
 ## Vercel
 
