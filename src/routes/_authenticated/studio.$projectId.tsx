@@ -215,7 +215,7 @@ function Studio() {
               <ArrowLeft className="size-4" />
             </button>
             <Link to="/" className="hidden sm:flex items-center gap-2">
-              <div className="size-6 rounded-md bg-foreground" />
+              <div className="size-7 rounded-lg bg-primary flex items-center justify-center"><div className="size-2 rounded-full bg-accent" /></div>
             </Link>
             <span className="text-sm font-medium truncate">{data?.project.name}</span>
             {data?.project.version ? (
@@ -264,7 +264,7 @@ function Studio() {
           <div ref={scrollRef} className="flex-1 overflow-y-auto p-5 space-y-5">
             {messages.length === 0 && !gen.isPending && (
               <div className="text-center py-8">
-                <div className="size-12 rounded-2xl bg-gradient-to-br from-accent/25 to-accent/5 border border-ember/30 mx-auto mb-4 flex items-center justify-center">
+                <div className="size-12 rounded-2xl bg-accent/20 border border-accent/40 mx-auto mb-4 flex items-center justify-center">
                   <Sparkles className="size-5 text-leaf" />
                 </div>
                 <p className="text-display text-2xl mb-2">Start composing.</p>
@@ -323,7 +323,7 @@ function Studio() {
         </aside>
 
         {/* Preview / Code */}
-        <section className="bg-surface/20 flex flex-col min-h-0">
+        <section className="bg-muted/50 flex flex-col min-h-0">
           {tab === "preview" ? (
             <>
               <div className="border-b border-border/40 px-4 h-10 flex items-center gap-3 text-xs text-muted-foreground">
@@ -385,8 +385,8 @@ function Studio() {
 
         {/* Side panel */}
         {panel && (
-          <aside className="w-[360px] border-l border-border/40 bg-background/80 backdrop-blur-xl overflow-y-auto">
-            <div className="p-4 flex items-center justify-between border-b border-border/40 sticky top-0 bg-background/95 backdrop-blur z-10">
+          <aside className="w-[360px] border-l border-border/40 bg-surface overflow-y-auto">
+            <div className="p-4 flex items-center justify-between border-b border-border/40 sticky top-0 bg-surface z-10">
               <p className="text-xs uppercase tracking-[0.2em] text-muted-foreground">{panel}</p>
               <button onClick={() => setPanel(null)} className="p-1 rounded hover:bg-surface text-muted-foreground hover:text-foreground">
                 <X className="size-4" />
@@ -529,9 +529,9 @@ function SkillsPanel({ all, active, onToggle, onCreate, onDelete }: {
       </button>
       {creating && (
         <div className="space-y-2 p-3 rounded-lg border border-ember/30 bg-surface/40">
-          <input placeholder="Skill name" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} className="w-full bg-background border border-border rounded px-2 py-1.5 text-xs" />
-          <input placeholder="Short description" value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} className="w-full bg-background border border-border rounded px-2 py-1.5 text-xs" />
-          <textarea placeholder="Instructions (rules, patterns, standards the AI should follow)" rows={6} value={form.instructions} onChange={(e) => setForm({ ...form, instructions: e.target.value })} className="w-full bg-background border border-border rounded px-2 py-1.5 text-xs resize-none" />
+          <input placeholder="Skill name" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} className="w-full bg-surface-elevated border border-border rounded px-2 py-1.5 text-xs" />
+          <input placeholder="Short description" value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} className="w-full bg-surface-elevated border border-border rounded px-2 py-1.5 text-xs" />
+          <textarea placeholder="Instructions (rules, patterns, standards the AI should follow)" rows={6} value={form.instructions} onChange={(e) => setForm({ ...form, instructions: e.target.value })} className="w-full bg-surface-elevated border border-border rounded px-2 py-1.5 text-xs resize-none" />
           <button
             onClick={() => { if (form.name && form.instructions.length >= 20) { onCreate(form); setForm({ name: "", description: "", instructions: "" }); setCreating(false); } else { toast.error("Name + 20+ char instructions required"); } }}
             className="w-full bg-primary text-primary-foreground text-xs py-1.5 rounded"
@@ -723,7 +723,7 @@ function DeployPanel({ githubUrl, vercelUrl, defaultRepoName, onPushGithub, onDe
           value={repoName}
           onChange={(e) => setRepoName(e.target.value)}
           placeholder="repo-name"
-          className="w-full bg-background border border-border rounded px-2 py-1.5 text-xs font-mono"
+          className="w-full bg-surface-elevated border border-border rounded px-2 py-1.5 text-xs font-mono"
         />
         <label className="flex items-center gap-2 text-xs text-muted-foreground">
           <input type="checkbox" checked={isPrivate} onChange={(e) => setIsPrivate(e.target.checked)} className="accent-ember" />
