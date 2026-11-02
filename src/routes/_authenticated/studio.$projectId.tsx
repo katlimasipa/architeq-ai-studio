@@ -4,6 +4,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import {
   getProject, generateSite, togglePublic, restoreVersion, deletePage,
 } from "@/lib/projects.functions";
+import type { GenerateSiteProgress, GenerateSiteResult } from "@/lib/projects.functions";
 import { pushToGithub, deployToVercel } from "@/lib/deployments.functions";
 import { uploadAsset, deleteAsset } from "@/lib/assets.functions";
 import { listSkills, createSkill, toggleProjectSkill, deleteSkill } from "@/lib/skills.functions";
@@ -53,6 +54,10 @@ function Studio() {
   const [slashTerm, setSlashTerm] = useState("");
   const [slashStart, setSlashStart] = useState(0);
   const [slashHighlight, setSlashHighlight] = useState(0);
+  const [generationProgress, setGenerationProgress] = useState<GenerateSiteProgress | null>(null);
+  const [generationStartedAt, setGenerationStartedAt] = useState<number | null>(null);
+  const [elapsedSeconds, setElapsedSeconds] = useState(0);
+  const [submittedPrompt, setSubmittedPrompt] = useState<{ content: string; baselineMessages: number } | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const initialPromptStarted = useRef<string | null>(null);
@@ -68,14 +73,53 @@ function Studio() {
   });
 
   const gen = useMutation({
-    mutationFn: (msg: string) => generate({ data: { projectId, message: msg } }),
-    onSuccess: (r) => {
-      qc.invalidateQueries({ queryKey: ["project", user.id, projectId] });
-      qc.invalidateQueries({ queryKey: ["projects"] });
+    mutationFn: async (msg: string) => {
+      const stream = await generate({ data: { projectId, message: msg } });
+      const reader = stream.getReader();
+      let result: GenerateSiteResult | null = null;
+      try {
+        while (true) {
+          const { value, done } = await reader.read();
+          if (done) break;
+          if (value.type === "progress") {
+            setGenerationProgress(value.progress);
+          } else if (value.type === "complete") {
+            result = value.result;
+            setGenerationProgress({ step: 5, title: "Preview updated", detail: "Your latest version is ready." });
+          } else {
+            throw new Error(value.message);
+          }
+        }
+      } finally {
+        reader.releaseLock();
+      }
+      if (!result) throw new Error("Generation ended before the preview was saved. Try again.");
+      return result;
+    },
+    onMutate: (message) => {
+      setSubmittedPrompt({ content: message, baselineMessages: data?.messages.length ?? 0 });
+      setGenerationStartedAt(Date.now());
+      setGenerationProgress({
+        step: 1,
+        title: "Starting your build",
+        detail: "Checking the project and preparing its saved context.",
+      });
+    },
+    onSuccess: async (r) => {
+      setGenerationProgress({ step: 5, title: "Preview updated", detail: "Your latest version is ready." });
+      await Promise.all([
+        qc.invalidateQueries({ queryKey: ["project", user.id, projectId] }),
+        qc.invalidateQueries({ queryKey: ["projects"] }),
+      ]);
+      setSubmittedPrompt(null);
+      setGenerationProgress(null);
+      setGenerationStartedAt(null);
       toast.success(`Site updated — v${r.version}`);
     },
     onError: (e, message) => {
       setInput((current) => current || message);
+      setGenerationProgress(null);
+      setGenerationStartedAt(null);
       toast.error(e instanceof Error ? e.message : "Generation failed");
     },
   });
@@ -182,7 +226,18 @@ function Studio() {
 
   useEffect(() => {
     scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: "smooth" });
-  }, [data?.messages, gen.isPending]);
+  }, [data?.messages, gen.isPending, submittedPrompt]);
+
+  useEffect(() => {
+    if (!generationStartedAt) {
+      setElapsedSeconds(0);
+      return;
+    }
+    const updateElapsed = () => setElapsedSeconds(Math.floor((Date.now() - generationStartedAt) / 1000));
+    updateElapsed();
+    const timer = window.setInterval(updateElapsed, 1000);
+    return () => window.clearInterval(timer);
+  }, [generationStartedAt]);
 
   function submit(e: React.FormEvent) {
     e.preventDefault();
@@ -259,6 +314,9 @@ function Studio() {
   const filteredSkills = (allSkills ?? []).filter((skill) => `${skill.name} ${skill.slug}`.toLowerCase().includes(slashTerm))
     .sort((a, b) => Number(pinnedSkillIds.has(b.id)) - Number(pinnedSkillIds.has(a.id)))
     .slice(0, 8);
+  const showSubmittedPrompt = submittedPrompt && messages.length <= submittedPrompt.baselineMessages;
+  const elapsedLabel = `${String(Math.floor(elapsedSeconds / 60)).padStart(2, "0")}:${String(elapsedSeconds % 60).padStart(2, "0")}`;
+  const generationSteps = ["Load project context", "Generate site", "Check pages", "Save preview"];
 
   return (
     <div className="h-screen bg-background p-3">
@@ -349,16 +407,61 @@ function Studio() {
                 <p className="text-[10px] uppercase tracking-[0.15em] text-muted-foreground mb-1">
                   {m.role === "user" ? "You" : "Architeq"}
                 </p>
-                <p className="text-sm leading-relaxed whitespace-pre-wrap">{m.content}</p>
+                {m.role === "user" ? (
+                  <PromptMessage content={m.content} onReuse={(prompt) => {
+                    setInput(prompt);
+                    requestAnimationFrame(() => inputRef.current?.focus());
+                  }} />
+                ) : (
+                  <p className="text-sm leading-relaxed whitespace-pre-wrap break-words">{m.content}</p>
+                )}
               </div>
             ))}
 
-            {gen.isPending && (
+            {showSubmittedPrompt && (
               <div>
-                <p className="text-[10px] uppercase tracking-[0.15em] text-leaf mb-1">Architeq</p>
-                <p className="text-sm text-muted-foreground inline-flex items-center gap-2">
-                  <Loader2 className="size-3 animate-spin" /> Composing your site…
-                </p>
+                <p className="text-[10px] uppercase tracking-[0.15em] text-muted-foreground mb-1">You</p>
+                <PromptMessage content={submittedPrompt.content} onReuse={(prompt) => {
+                  setInput(prompt);
+                  requestAnimationFrame(() => inputRef.current?.focus());
+                }} disabled={gen.isPending} />
+              </div>
+            )}
+
+            {gen.isPending && (
+              <div role="status" aria-live="polite" className="rounded-2xl border border-accent/50 bg-surface-elevated p-3">
+                <div className="flex items-start gap-2">
+                  {generationProgress?.step === 5 ? (
+                    <Check className="mt-0.5 size-4 shrink-0 text-leaf" />
+                  ) : (
+                    <Loader2 className="mt-0.5 size-4 shrink-0 animate-spin text-leaf" />
+                  )}
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-center justify-between gap-2">
+                      <p className="text-sm font-medium">{generationProgress?.title ?? "Working on your site"}</p>
+                      <span className="shrink-0 font-mono text-[10px] text-muted-foreground">{elapsedLabel}</span>
+                    </div>
+                    <p className="mt-1 text-xs leading-relaxed text-muted-foreground">
+                      {generationProgress?.detail ?? "Waiting for the project update."}
+                    </p>
+                  </div>
+                </div>
+                <div className="mt-3 space-y-1.5 border-t border-border/50 pt-2">
+                  {generationSteps.map((label, index) => {
+                    const step = generationProgress?.step ?? 1;
+                    const completed = step === 5 || index + 1 < step;
+                    const active = step < 5 && index + 1 === step;
+                    return (
+                      <div key={label} className="flex items-center justify-between gap-2 text-[10px]">
+                        <span className={`inline-flex items-center gap-1.5 ${completed || active ? "text-foreground" : "text-muted-foreground"}`}>
+                          {completed ? <Check className="size-3 text-leaf" /> : active ? <Loader2 className="size-3 animate-spin text-leaf" /> : <span className="ml-0.5 mr-0.5 size-2 rounded-full border border-border" />}
+                          {label}
+                        </span>
+                        <span className="text-muted-foreground">{completed ? "Done" : active ? "In progress" : "Waiting"}</span>
+                      </div>
+                    );
+                  })}
+                </div>
               </div>
             )}
 
@@ -538,6 +641,44 @@ function Studio() {
         )}
       </div>
       </div>
+    </div>
+  );
+}
+
+function PromptMessage({ content, onReuse, disabled = false }: {
+  content: string;
+  onReuse: (content: string) => void;
+  disabled?: boolean;
+}) {
+  const [expanded, setExpanded] = useState(false);
+  const isLong = content.length > 420;
+  const preview = `${content.slice(0, 280).trimEnd()}…`;
+
+  return (
+    <div className={isLong ? "rounded-xl border border-border/60 bg-surface/60 p-3" : ""}>
+      <p className="text-sm leading-relaxed whitespace-pre-wrap break-words">
+        {isLong && !expanded ? preview : content}
+      </p>
+      {isLong && (
+        <div className="mt-2 flex items-center gap-3">
+          <button
+            type="button"
+            onClick={() => setExpanded((value) => !value)}
+            aria-expanded={expanded}
+            className="text-xs font-medium text-leaf hover:underline"
+          >
+            {expanded ? "Show less" : `Show full prompt · ${content.length.toLocaleString()} characters`}
+          </button>
+          <button
+            type="button"
+            onClick={() => onReuse(content)}
+            disabled={disabled}
+            className="inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground disabled:opacity-50"
+          >
+            <Copy className="size-3" /> Use again
+          </button>
+        </div>
+      )}
     </div>
   );
 }

@@ -253,6 +253,192 @@ export const deletePage = createServerFn({ method: "POST" })
     return { ok: true };
   });
 
+export type GenerateSiteProgress = {
+  step: 1 | 2 | 3 | 4 | 5;
+  title: string;
+  detail: string;
+};
+
+export type GenerateSiteResult = {
+  html: string;
+  summary: string;
+  version: number;
+  pages: { path: string; title: string }[];
+};
+
+export type GenerateSiteEvent =
+  | { type: "progress"; progress: GenerateSiteProgress }
+  | { type: "complete"; result: GenerateSiteResult }
+  | { type: "error"; message: string };
+
+async function generateSiteWithProgress(
+  data: { projectId: string; message: string },
+  context: { supabase: any; userId: string },
+  requestOidcToken: string | null | undefined,
+  report: (progress: GenerateSiteProgress) => void,
+): Promise<GenerateSiteResult> {
+  const lovableApiKey = process.env.LOVABLE_API_KEY;
+  const geminiApiKey = process.env.GEMINI_API_KEY;
+  const vercelGatewayToken =
+    process.env.AI_GATEWAY_API_KEY || requestOidcToken || process.env.VERCEL_OIDC_TOKEN;
+  if (!lovableApiKey && !geminiApiKey && !vercelGatewayToken) {
+    throw new Error(
+      "AI generation needs a provider key. Add GEMINI_API_KEY from Google AI Studio, add AI_GATEWAY_API_KEY or LOVABLE_API_KEY, or enable Secure Backend Access (OIDC) on Vercel.",
+    );
+  }
+
+  report({ step: 1, title: "Loading your project", detail: "Gathering saved pages, skills, assets, and recent changes." });
+  const { data: project, error: pErr } = await context.supabase
+    .from("projects")
+    .select("id, html, name, version, design_dna")
+    .eq("id", data.projectId)
+    .eq("user_id", context.userId)
+    .maybeSingle();
+  if (pErr || !project) throw new Error("Project not found");
+
+  const [{ data: history }, { data: assets }, { data: skillRows }, { data: existingPages }] = await Promise.all([
+    context.supabase.from("messages").select("role, content").eq("project_id", data.projectId).eq("user_id", context.userId).order("created_at", { ascending: true }).limit(30),
+    context.supabase.from("project_assets").select("kind, name, url").eq("project_id", data.projectId).eq("user_id", context.userId),
+    context.supabase.from("skills").select("slug, name, instructions, user_id"),
+    (context.supabase as any).from("project_pages").select("path, title, html").eq("project_id", data.projectId).eq("user_id", context.userId).order("path", { ascending: true }),
+  ]);
+  const messageHistory = (history ?? []) as { role: string; content: string }[];
+  const projectAssets = (assets ?? []) as { kind: string; name: string; url: string }[];
+
+  await context.supabase.from("messages").insert({
+    project_id: data.projectId, user_id: context.userId, role: "user", content: data.message,
+  });
+
+  const invokedSkillSlugs = Array.from(
+    new Set(Array.from(data.message.matchAll(/(?:^|\s)\/{1,2}([a-z0-9]+(?:-[a-z0-9]+)*)(?=$|\s|[.,!?])/gi), (m) => m[1].toLowerCase())),
+  );
+  const availableSkills = (skillRows ?? []) as { slug: string; name: string; instructions: string; user_id: string | null }[];
+  const invokedSkills: typeof availableSkills = [];
+  for (const command of invokedSkillSlugs) {
+    const exactMatches = availableSkills.filter((skill) => skill.slug === command);
+    const prefixMatches = availableSkills.filter((skill) => skill.slug.startsWith(`${command}-`));
+    const match = exactMatches.find((skill) => skill.user_id === context.userId)
+      ?? exactMatches[0]
+      ?? (prefixMatches.length === 1 ? prefixMatches[0] : undefined);
+    if (match && !invokedSkills.some((skill) => skill.slug === match.slug)) invokedSkills.push(match);
+  }
+  const skillBlock = invokedSkills.length
+    ? `\n\nINVOKED SKILLS (apply only the skills explicitly called with /commands):\n${invokedSkills.map((s) => `--- SKILL: ${s.name} (/${s.slug}) ---\n${s.instructions}`).join("\n\n")}`
+    : "";
+
+  const assetBlock = projectAssets.length
+    ? `\n\nUPLOADED PROJECT ASSETS (use these URLs directly in HTML — never placeholders):\n${projectAssets.map((a) => `- ${a.kind.toUpperCase()} "${a.name}": ${a.url}`).join("\n")}`
+    : "";
+
+  const dnaBlock = project.design_dna && Object.keys(project.design_dna as object).length
+    ? `\n\nESTABLISHED DESIGN DNA (preserve consistency):\n${JSON.stringify(project.design_dna, null, 2)}`
+    : "";
+
+  const pages = (existingPages ?? []) as { path: string; title: string; html: string }[];
+  const pagesBlock = pages.length
+    ? `\n\nCURRENT PAGES (paths in this project — preserve unless instructed to change):\n${pages.map((p) => `- ${p.path}  "${p.title}"  (${p.html.length} chars)`).join("\n")}`
+    : "";
+
+  const system = SYSTEM_PROMPT_BASE + skillBlock + assetBlock + dnaBlock + pagesBlock;
+
+  const {
+    createGeminiAiProvider,
+    createLovableAiGatewayProvider,
+    createVercelAiGatewayProvider,
+  } = await import("./ai-gateway.server");
+  const { streamText } = await import("ai");
+  const model = lovableApiKey
+    ? createLovableAiGatewayProvider(lovableApiKey)("google/gemini-3-flash-preview")
+    : geminiApiKey
+      ? createGeminiAiProvider(geminiApiKey)("gemini-2.5-flash")
+      : createVercelAiGatewayProvider(vercelGatewayToken!)("google/gemini-2.5-flash");
+
+  const contextMessages: { role: "system" | "user" | "assistant"; content: string }[] = [
+    { role: "system", content: system },
+    ...messageHistory.map((m) => ({ role: m.role as "user" | "assistant", content: m.content })),
+  ];
+
+  if (pages.length > 0) {
+    const dump = pages.map((p) => `===PAGE: ${p.path} | ${p.title}===\n${p.html}`).join("\n\n");
+    contextMessages.push({ role: "assistant", content: `Current site pages (preserve unless instructed):\n\n${dump}` });
+  } else if (project.html) {
+    contextMessages.push({ role: "assistant", content: `Current site HTML:\n\n${project.html}` });
+  }
+  contextMessages.push({ role: "user", content: data.message });
+
+  report({ step: 2, title: "Generating your site", detail: "Waiting for the AI to start writing the pages." });
+  let raw = "";
+  let lastProgressAt = 0;
+  try {
+    const result = streamText({ model, messages: contextMessages, maxOutputTokens: 32000 });
+    for await (const chunk of result.textStream) {
+      raw += chunk;
+      const now = Date.now();
+      if (now - lastProgressAt >= 900) {
+        report({
+          step: 2,
+          title: "Generating your site",
+          detail: `${raw.length.toLocaleString()} characters drafted so far.`,
+        });
+        lastProgressAt = now;
+      }
+    }
+    raw = raw.trim();
+  } catch (e) {
+    const err = e as { statusCode?: number; message?: string; responseBody?: string };
+    const details = `${err.message ?? ""} ${err.responseBody ?? ""}`;
+    if (err.statusCode === 429) throw new Error("Rate limit reached. Try again in a moment.");
+    const usesVercelGateway = !lovableApiKey && !geminiApiKey;
+    if (
+      usesVercelGateway &&
+      (err.statusCode === 402 || err.statusCode === 403) &&
+      /valid credit card|payment card|billing|credits/i.test(details)
+    ) {
+      throw new Error(
+        "Vercel AI Gateway requires a payment card on file before it can process AI requests. Add one in Vercel AI settings, then retry.",
+      );
+    }
+    if (err.statusCode === 402) throw new Error("AI credits exhausted. Add credits in workspace settings.");
+    if (err.statusCode === 401 || err.statusCode === 403) {
+      throw new Error("The AI provider rejected the request. Check its API key, model access, or billing setup, then retry.");
+    }
+    throw new Error(err.message || "Generation failed");
+  }
+
+  report({ step: 3, title: "Checking the generated pages", detail: "Validating HTML and matching page routes." });
+  raw = raw.replace(/^```html\s*/i, "").replace(/^```\s*/i, "").replace(/```\s*$/i, "").trim();
+  const parsed = parsePages(raw);
+  if (!parsed.length) throw new Error("Model returned empty output. Try rephrasing.");
+  for (const p of parsed) {
+    if (!p.html.toLowerCase().includes("<html") && !p.html.toLowerCase().includes("<!doctype")) {
+      throw new Error(`Page "${p.path}" missing valid HTML. Try again.`);
+    }
+  }
+
+  report({ step: 4, title: "Saving your preview", detail: `Saving ${parsed.length} page${parsed.length === 1 ? "" : "s"} and a version snapshot.` });
+  await syncPages(context.supabase, data.projectId, context.userId, parsed);
+
+  const indexHtml = parsed.find((p) => p.path === "/")?.html ?? parsed[0].html;
+  const newVersion = (project.version ?? 0) + 1;
+  const dna = extractDesignDNA(indexHtml);
+  const pageList = parsed.map((p) => p.path).join(", ");
+  const summary = `v${newVersion} — updated ${parsed.length} page${parsed.length > 1 ? "s" : ""}: ${pageList}. ${dna.fonts.length ? "Fonts: " + dna.fonts.slice(0, 3).join(", ") + "." : ""}`;
+
+  await Promise.all([
+    context.supabase.from("messages").insert({
+      project_id: data.projectId, user_id: context.userId, role: "assistant", content: summary,
+    }),
+    context.supabase.from("project_versions").insert({
+      project_id: data.projectId, user_id: context.userId, version: newVersion, prompt: data.message, html: raw,
+    }),
+    context.supabase.from("projects").update({
+      html: indexHtml, prompt: data.message, version: newVersion, design_dna: dna as any,
+    }).eq("id", data.projectId).eq("user_id", context.userId),
+  ]);
+
+  return { html: indexHtml, summary, version: newVersion, pages: parsed.map((p) => ({ path: p.path, title: p.title })) };
+}
+
 export const generateSite = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((d: unknown) =>
@@ -262,156 +448,34 @@ export const generateSite = createServerFn({ method: "POST" })
     }).parse(d),
   )
   .handler(async ({ data, context }) => {
-    const request = getRequest();
-    const lovableApiKey = process.env.LOVABLE_API_KEY;
-    const geminiApiKey = process.env.GEMINI_API_KEY;
-    const vercelGatewayToken =
-      process.env.AI_GATEWAY_API_KEY ||
-      request?.headers.get("x-vercel-oidc-token") ||
-      process.env.VERCEL_OIDC_TOKEN;
-    if (!lovableApiKey && !geminiApiKey && !vercelGatewayToken) {
-      throw new Error(
-        "AI generation needs a provider key. Add GEMINI_API_KEY from Google AI Studio, add AI_GATEWAY_API_KEY or LOVABLE_API_KEY, or enable Secure Backend Access (OIDC) on Vercel.",
-      );
-    }
+    const requestOidcToken = getRequest()?.headers.get("x-vercel-oidc-token");
+    return new ReadableStream<GenerateSiteEvent>({
+      start(controller) {
+        const emit = (event: GenerateSiteEvent) => {
+          try {
+            controller.enqueue(event);
+          } catch {
+            // The browser may leave the page while generation continues.
+          }
+        };
 
-    const { data: project, error: pErr } = await context.supabase
-      .from("projects")
-      .select("id, html, name, version, design_dna")
-      .eq("id", data.projectId)
-      .eq("user_id", context.userId)
-      .maybeSingle();
-    if (pErr || !project) throw new Error("Project not found");
-
-    const [{ data: history }, { data: assets }, { data: skillRows }, { data: existingPages }] = await Promise.all([
-      context.supabase.from("messages").select("role, content").eq("project_id", data.projectId).eq("user_id", context.userId).order("created_at", { ascending: true }).limit(30),
-      context.supabase.from("project_assets").select("kind, name, url").eq("project_id", data.projectId).eq("user_id", context.userId),
-      context.supabase.from("skills").select("slug, name, instructions, user_id"),
-      (context.supabase as any).from("project_pages").select("path, title, html").eq("project_id", data.projectId).eq("user_id", context.userId).order("path", { ascending: true }),
-    ]);
-
-    await context.supabase.from("messages").insert({
-      project_id: data.projectId, user_id: context.userId, role: "user", content: data.message,
+        void generateSiteWithProgress(data, context, requestOidcToken, (progress) => {
+          emit({ type: "progress", progress });
+        }).then(
+          (result) => emit({ type: "complete", result }),
+          (error: unknown) => emit({
+            type: "error",
+            message: error instanceof Error ? error.message : "Generation failed. Try again.",
+          }),
+        ).finally(() => {
+          try {
+            controller.close();
+          } catch {
+            // The stream can already be cancelled if the browser leaves.
+          }
+        });
+      },
     });
-
-    const invokedSkillSlugs = Array.from(
-      new Set(Array.from(data.message.matchAll(/(?:^|\s)\/{1,2}([a-z0-9]+(?:-[a-z0-9]+)*)(?=$|\s|[.,!?])/gi), (m) => m[1].toLowerCase())),
-    );
-    const availableSkills = (skillRows ?? []) as { slug: string; name: string; instructions: string; user_id: string | null }[];
-    const invokedSkills: typeof availableSkills = [];
-    for (const command of invokedSkillSlugs) {
-      const exactMatches = availableSkills.filter((skill) => skill.slug === command);
-      const prefixMatches = availableSkills.filter((skill) => skill.slug.startsWith(`${command}-`));
-      const match = exactMatches.find((skill) => skill.user_id === context.userId)
-        ?? exactMatches[0]
-        ?? (prefixMatches.length === 1 ? prefixMatches[0] : undefined);
-      if (match && !invokedSkills.some((skill) => skill.slug === match.slug)) invokedSkills.push(match);
-    }
-    const skillBlock = invokedSkills.length
-      ? `\n\nINVOKED SKILLS (apply only the skills explicitly called with /commands):\n${invokedSkills.map((s) => `--- SKILL: ${s.name} (/${s.slug}) ---\n${s.instructions}`).join("\n\n")}`
-      : "";
-
-    const assetBlock = assets && assets.length
-      ? `\n\nUPLOADED PROJECT ASSETS (use these URLs directly in HTML — never placeholders):\n${assets.map((a) => `- ${a.kind.toUpperCase()} "${a.name}": ${a.url}`).join("\n")}`
-      : "";
-
-    const dnaBlock = project.design_dna && Object.keys(project.design_dna as object).length
-      ? `\n\nESTABLISHED DESIGN DNA (preserve consistency):\n${JSON.stringify(project.design_dna, null, 2)}`
-      : "";
-
-    const pages = (existingPages ?? []) as { path: string; title: string; html: string }[];
-    const pagesBlock = pages.length
-      ? `\n\nCURRENT PAGES (paths in this project — preserve unless instructed to change):\n${pages.map((p) => `- ${p.path}  "${p.title}"  (${p.html.length} chars)`).join("\n")}`
-      : "";
-
-    const system = SYSTEM_PROMPT_BASE + skillBlock + assetBlock + dnaBlock + pagesBlock;
-
-    const {
-      createGeminiAiProvider,
-      createLovableAiGatewayProvider,
-      createVercelAiGatewayProvider,
-    } = await import("./ai-gateway.server");
-    const { generateText } = await import("ai");
-    const model = lovableApiKey
-      ? createLovableAiGatewayProvider(lovableApiKey)("google/gemini-3-flash-preview")
-      : geminiApiKey
-        ? createGeminiAiProvider(geminiApiKey)("gemini-2.5-flash")
-        : createVercelAiGatewayProvider(vercelGatewayToken!)("google/gemini-2.5-flash");
-
-    const contextMessages: { role: "system" | "user" | "assistant"; content: string }[] = [
-      { role: "system", content: system },
-      ...(history ?? []).map((m) => ({ role: m.role as "user" | "assistant", content: m.content })),
-    ];
-
-    if (pages.length > 0) {
-      // Provide the full current page bodies so the model can edit precisely
-      const dump = pages.map((p) => `===PAGE: ${p.path} | ${p.title}===\n${p.html}`).join("\n\n");
-      contextMessages.push({ role: "assistant", content: `Current site pages (preserve unless instructed):\n\n${dump}` });
-    } else if (project.html) {
-      contextMessages.push({ role: "assistant", content: `Current site HTML:\n\n${project.html}` });
-    }
-    contextMessages.push({ role: "user", content: data.message });
-
-    let raw: string;
-    try {
-      const result = await generateText({ model, messages: contextMessages, maxOutputTokens: 32000 });
-      raw = result.text.trim();
-    } catch (e) {
-      const err = e as { statusCode?: number; message?: string; responseBody?: string };
-      const details = `${err.message ?? ""} ${err.responseBody ?? ""}`;
-      if (err.statusCode === 429) throw new Error("Rate limit reached. Try again in a moment.");
-      const usesVercelGateway = !lovableApiKey && !geminiApiKey;
-      if (
-        usesVercelGateway &&
-        (err.statusCode === 402 || err.statusCode === 403) &&
-        /valid credit card|payment card|billing|credits/i.test(details)
-      ) {
-        throw new Error(
-          "Vercel AI Gateway requires a payment card on file before it can process AI requests. Add one in Vercel AI settings, then retry.",
-        );
-      }
-      if (err.statusCode === 402) throw new Error("AI credits exhausted. Add credits in workspace settings.");
-      if (err.statusCode === 401 || err.statusCode === 403) {
-        throw new Error(
-          "The AI provider rejected the request. Check its API key, model access, or billing setup, then retry.",
-        );
-      }
-      throw new Error(err.message || "Generation failed");
-    }
-
-    raw = raw.replace(/^```html\s*/i, "").replace(/^```\s*/i, "").replace(/```\s*$/i, "").trim();
-
-    const parsed = parsePages(raw);
-    if (!parsed.length) throw new Error("Model returned empty output. Try rephrasing.");
-    for (const p of parsed) {
-      if (!p.html.toLowerCase().includes("<html") && !p.html.toLowerCase().includes("<!doctype")) {
-        throw new Error(`Page "${p.path}" missing valid HTML. Try again.`);
-      }
-    }
-
-    await syncPages(context.supabase, data.projectId, context.userId, parsed);
-
-    // Index page (path "/") becomes the canonical project HTML for back-compat & versioning
-    const indexHtml = parsed.find((p) => p.path === "/")?.html ?? parsed[0].html;
-    const newVersion = (project.version ?? 0) + 1;
-    const dna = extractDesignDNA(indexHtml);
-
-    const pageList = parsed.map((p) => p.path).join(", ");
-    const summary = `v${newVersion} — updated ${parsed.length} page${parsed.length > 1 ? "s" : ""}: ${pageList}. ${dna.fonts.length ? "Fonts: " + dna.fonts.slice(0, 3).join(", ") + "." : ""}`;
-
-    await Promise.all([
-      context.supabase.from("messages").insert({
-        project_id: data.projectId, user_id: context.userId, role: "assistant", content: summary,
-      }),
-      context.supabase.from("project_versions").insert({
-        project_id: data.projectId, user_id: context.userId, version: newVersion, prompt: data.message, html: raw,
-      }),
-      context.supabase.from("projects").update({
-        html: indexHtml, prompt: data.message, version: newVersion, design_dna: dna as any,
-      }).eq("id", data.projectId).eq("user_id", context.userId),
-    ]);
-
-    return { html: indexHtml, summary, version: newVersion, pages: parsed.map((p) => ({ path: p.path, title: p.title })) };
   });
 
 // Public preview — no auth — returns one page by path
