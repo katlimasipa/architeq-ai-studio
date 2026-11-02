@@ -61,9 +61,7 @@ function AuthPage() {
         <div className="hidden md:flex bg-primary text-primary-foreground relative flex-col justify-between p-12">
           <div className="absolute bottom-[-160px] right-[-160px] size-[420px] rounded-full bg-accent/20 blur-3xl pointer-events-none" />
           <Link to="/" className="flex items-center gap-2.5 relative">
-            <div className="size-8 rounded-lg bg-surface-elevated flex items-center justify-center">
-              <div className="size-2.5 rounded-full bg-accent" />
-            </div>
+            <img src="/favicon.png" alt="" className="size-9 rounded-xl object-cover" />
             <span className="text-display text-xl">Architeq</span>
           </Link>
           <div className="relative">
@@ -86,10 +84,7 @@ function AuthPage() {
         <div className="flex items-center justify-center p-8">
           <div className="w-full max-w-sm">
             <Link to="/" className="md:hidden flex items-center gap-2 mb-10">
-              <div className="size-8 rounded-lg bg-primary flex items-center justify-center">
-                <div className="size-2.5 rounded-full bg-accent" />
-              </div>
-              <span className="text-display text-xl">Architeq</span>
+              <img src="/architeq-logo.webp" alt="Architeq AI Studio" className="h-11 w-auto max-w-[180px] object-contain" />
             </Link>
             <h2 className="text-display text-4xl mb-2">
               {mode === "signup" ? "Create your account" : "Welcome back"}

@@ -64,12 +64,15 @@ export const getProjectPage = createServerFn({ method: "GET" })
 export const createProject = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((d: unknown) =>
-    z.object({ name: z.string().min(1).max(100).default("Untitled") }).parse(d),
+    z.object({
+      name: z.string().min(1).max(100).default("Untitled project"),
+      prompt: z.string().max(8000).optional(),
+    }).parse(d),
   )
   .handler(async ({ data, context }) => {
     const { data: row, error } = await context.supabase
       .from("projects")
-      .insert({ name: data.name, user_id: context.userId, slug: makeSlug() })
+      .insert({ name: data.name, prompt: data.prompt?.trim() ?? "", user_id: context.userId, slug: makeSlug() })
       .select("id")
       .single();
     if (error) throw new Error(error.message);

@@ -48,6 +48,7 @@ function Studio() {
   const [panel, setPanel] = useState<Panel>(null);
   const [previewPath, setPreviewPath] = useState<string>("/");
   const scrollRef = useRef<HTMLDivElement>(null);
+  const initialPromptStarted = useRef<string | null>(null);
 
   const { data, isLoading } = useQuery({
     queryKey: ["project", projectId],
@@ -65,8 +66,20 @@ function Studio() {
       qc.invalidateQueries({ queryKey: ["projects"] });
       toast.success(`Site updated — v${r.version}`);
     },
-    onError: (e) => toast.error(e instanceof Error ? e.message : "Generation failed"),
+    onError: (e, message) => {
+      setInput((current) => current || message);
+      toast.error(e instanceof Error ? e.message : "Generation failed");
+    },
   });
+  const generateMutate = gen.mutate;
+
+  useEffect(() => {
+    const prompt = data?.project.prompt?.trim();
+    if (!data || !prompt || data.messages.length > 0 || initialPromptStarted.current === projectId) return;
+
+    initialPromptStarted.current = projectId;
+    generateMutate(prompt);
+  }, [data, generateMutate, projectId]);
 
   const pubMut = useMutation({
     mutationFn: (v: boolean) => tPub({ data: { id: projectId, is_public: v } }),
@@ -215,7 +228,7 @@ function Studio() {
               <ArrowLeft className="size-4" />
             </button>
             <Link to="/" className="hidden sm:flex items-center gap-2">
-              <div className="size-7 rounded-lg bg-primary flex items-center justify-center"><div className="size-2 rounded-full bg-accent" /></div>
+              <img src="/favicon.png" alt="Architeq home" className="size-8 rounded-lg object-cover" />
             </Link>
             <span className="text-sm font-medium truncate">{data?.project.name}</span>
             {data?.project.version ? (
@@ -300,6 +313,21 @@ function Studio() {
                 <p className="text-sm text-muted-foreground inline-flex items-center gap-2">
                   <Loader2 className="size-3 animate-spin" /> Composing your site…
                 </p>
+              </div>
+            )}
+
+            {gen.isError && (
+              <div role="alert" className="rounded-xl border border-destructive/30 bg-surface p-3">
+                <p className="text-sm text-destructive">Your project is saved, but the first build didn’t finish. Your prompt is ready below so you can retry.</p>
+                {gen.variables && (
+                  <button
+                    type="button"
+                    onClick={() => generateMutate(gen.variables)}
+                    className="mt-3 rounded-full border border-border px-4 py-2 text-sm font-medium hover:bg-surface-elevated transition"
+                  >
+                    Retry build
+                  </button>
+                )}
               </div>
             )}
           </div>

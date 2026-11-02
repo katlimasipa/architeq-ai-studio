@@ -1,7 +1,13 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, useNavigate } from "@tanstack/react-router";
+import { useServerFn } from "@tanstack/react-start";
+import { useState } from "react";
 import heroImg from "@/assets/hero.jpg";
 import orbImg from "@/assets/orb.jpg";
-import { ArrowUpRight, Sparkles, Command, Layers, Cpu, Rocket, GitBranch, Globe, Shield, Wand2 } from "lucide-react";
+import { ArrowUpRight, Sparkles, Command, Layers, Cpu, Rocket, GitBranch, Globe, Shield, Wand2, Loader2 } from "lucide-react";
+import { toast } from "sonner";
+import { supabase } from "@/integrations/supabase/client";
+import { createProject } from "@/lib/projects.functions";
+import { PENDING_PROJECT_PROMPT_KEY, suggestProjectName } from "@/lib/project-name";
 
 export const Route = createFileRoute("/")({
   head: () => ({
@@ -41,12 +47,8 @@ function Nav() {
   return (
     <header className="fixed top-3 md:top-5 inset-x-3 md:inset-x-5 z-50">
       <div className="app-frame !rounded-[20px] h-16 px-5 flex items-center justify-between">
-        <a href="#" className="flex items-center gap-2.5">
-          <div className="size-8 rounded-lg bg-primary flex items-center justify-center">
-            <div className="size-2.5 rounded-full bg-accent" />
-          </div>
-          <span className="text-display text-xl tracking-tight">Architeq</span>
-          <span className="text-[10px] uppercase tracking-[0.2em] text-muted-foreground ml-1">Studio</span>
+        <a href="#" className="flex items-center" aria-label="Architeq AI Studio home">
+          <img src="/architeq-logo.webp" alt="Architeq AI Studio" className="h-10 w-auto max-w-[180px] object-contain" />
         </a>
         <nav className="hidden md:flex items-center gap-8 text-sm text-muted-foreground">
           <a href="#capabilities" className="hover:text-foreground transition">Capabilities</a>
@@ -89,7 +91,7 @@ function Hero() {
             Ship to production.
           </p>
           <div className="md:col-span-4 md:col-start-9 flex flex-wrap gap-3">
-            <a href="/auth" className="inline-flex items-center gap-2 rounded-full bg-primary text-primary-foreground px-5 py-3 text-sm font-medium hover:bg-primary/90 transition">
+            <a href="#prompt" className="inline-flex items-center gap-2 rounded-full bg-primary text-primary-foreground px-5 py-3 text-sm font-medium hover:bg-primary/90 transition">
               <Sparkles className="size-4" />
               Start building
             </a>
@@ -204,6 +206,36 @@ function Capabilities() {
 }
 
 function Prompt() {
+  const navigate = useNavigate();
+  const create = useServerFn(createProject);
+  const [prompt, setPrompt] = useState("");
+  const [isComposing, setIsComposing] = useState(false);
+
+  async function handleCompose(e: React.FormEvent<HTMLFormElement>) {
+    e.preventDefault();
+    const brief = prompt.trim();
+    if (!brief || isComposing) return;
+
+    setIsComposing(true);
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) {
+        window.sessionStorage.setItem(PENDING_PROJECT_PROMPT_KEY, brief);
+        await navigate({ to: "/auth" });
+        return;
+      }
+
+      const project = await create({
+        data: { name: suggestProjectName(brief), prompt: brief },
+      });
+      await navigate({ to: "/studio/$projectId", params: { projectId: project.id } });
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Couldn't create your project. Try again.");
+    } finally {
+      setIsComposing(false);
+    }
+  }
+
   return (
     <section id="prompt" className="px-6 md:px-12 py-24">
       <div className="mx-auto max-w-4xl">
@@ -224,29 +256,31 @@ function Prompt() {
               </div>
               <span>orchestrator · multi-model</span>
             </div>
-            <div className="font-mono text-base leading-relaxed text-primary-foreground">
-              <span className="text-primary-foreground/50">› </span>
-              Build a <span className="text-accent">conversion-focused</span> landing page for a B2B fintech
-              with <span className="text-accent">strong typography</span>, a working pricing page, blog,
-              and a contact form wired to a <span className="text-accent">database</span>.
-            </div>
-            <div className="mt-6 flex flex-wrap gap-2">
-              {["+ Add brand kit", "+ Reference URL", "+ Figma frame", "+ Existing repo"].map((t) => (
-                <button key={t} className="text-xs px-3 py-1.5 rounded-full border border-white/15 text-primary-foreground/70 hover:bg-white/10 hover:text-primary-foreground transition">
-                  {t}
-                </button>
-              ))}
-            </div>
+            <form onSubmit={handleCompose}>
+              <label htmlFor="project-prompt" className="sr-only">Describe the website or app you want to build</label>
+              <div className="flex items-start gap-2 font-mono text-base leading-relaxed text-primary-foreground">
+                <span className="text-primary-foreground/50" aria-hidden="true">›</span>
+                <textarea
+                  id="project-prompt"
+                  value={prompt}
+                  onChange={(e) => setPrompt(e.target.value)}
+                  placeholder="Describe the website or app you want to build…"
+                  maxLength={8000}
+                  rows={4}
+                  className="min-h-28 w-full resize-y bg-transparent placeholder:text-primary-foreground/40 focus:outline-none"
+                />
+              </div>
             <div className="mt-6 flex items-center justify-between">
               <div className="flex items-center gap-2 text-xs text-primary-foreground/50">
                 <Command className="size-3.5" />
                 <span>Plan → Generate → Deploy</span>
               </div>
-              <button className="inline-flex items-center gap-2 rounded-full bg-accent text-accent-foreground px-5 py-2.5 text-sm font-medium hover:bg-accent/90 transition">
-                Compose
-                <Sparkles className="size-4" />
+              <button type="submit" disabled={!prompt.trim() || isComposing} className="inline-flex items-center gap-2 rounded-full bg-accent text-accent-foreground px-5 py-2.5 text-sm font-medium hover:bg-accent/90 transition disabled:cursor-not-allowed disabled:opacity-50">
+                {isComposing ? <><Loader2 className="size-4 animate-spin" /> Creating…</> : <>Create project <Sparkles className="size-4" /></>}
               </button>
             </div>
+            <p className="mt-3 text-right text-xs text-primary-foreground/45">Your project opens in the studio preview.</p>
+            </form>
           </div>
         </div>
       </div>
@@ -435,8 +469,8 @@ function CTA() {
         <p className="text-muted-foreground text-lg max-w-xl mx-auto mb-10">
           The studio is open. Bring a prompt, a Figma frame, or just a feeling. Architeq takes it from there.
         </p>
-        <a href="/auth" className="inline-flex items-center gap-2 rounded-full bg-primary text-primary-foreground px-6 py-3.5 text-sm font-medium hover:bg-primary/90 transition">
-          Open the Studio
+        <a href="#prompt" className="inline-flex items-center gap-2 rounded-full bg-primary text-primary-foreground px-6 py-3.5 text-sm font-medium hover:bg-primary/90 transition">
+          Start with a prompt
           <ArrowUpRight className="size-4" />
         </a>
       </div>
@@ -449,12 +483,7 @@ function Footer() {
     <footer className="border-t border-border px-6 md:px-12 py-14">
       <div className="mx-auto max-w-6xl grid md:grid-cols-5 gap-12">
         <div className="md:col-span-2">
-          <div className="flex items-center gap-2.5 mb-4">
-            <div className="size-8 rounded-lg bg-primary flex items-center justify-center">
-              <div className="size-2.5 rounded-full bg-accent" />
-            </div>
-            <span className="text-display text-xl">Architeq</span>
-          </div>
+          <img src="/architeq-logo.webp" alt="Architeq AI Studio" className="h-10 w-auto max-w-[180px] object-contain mb-4" />
           <p className="text-sm text-muted-foreground max-w-xs">
             The autonomous studio for building the web. Crafted in the open.
           </p>

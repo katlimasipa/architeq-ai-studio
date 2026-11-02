@@ -3,10 +3,11 @@ import { useServerFn } from "@tanstack/react-start";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { listProjects, createProject, deleteProject } from "@/lib/projects.functions";
 import { supabase } from "@/integrations/supabase/client";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Plus, Sparkles, LogOut, Trash2, Loader2, ArrowUpRight, Layers } from "lucide-react";
 import { toast } from "sonner";
 import { formatDistanceToNow } from "date-fns";
+import { PENDING_PROJECT_PROMPT_KEY, suggestProjectName } from "@/lib/project-name";
 
 export const Route = createFileRoute("/_authenticated/dashboard")({
   head: () => ({ meta: [{ title: "Dashboard — Architeq" }] }),
@@ -22,15 +23,22 @@ function Dashboard() {
   const del = useServerFn(deleteProject);
 
   const [creating, setCreating] = useState(false);
-  const [name, setName] = useState("");
+  const [name, setName] = useState("Untitled project");
+  const pendingPromptHandled = useRef(false);
 
-  const { data: projects, isLoading } = useQuery({
+  const {
+    data: projects,
+    isLoading,
+    isError: hasProjectsError,
+    error: projectsError,
+    refetch: refetchProjects,
+  } = useQuery({
     queryKey: ["projects"],
     queryFn: () => list(),
   });
 
-  const createMut = useMutation({
-    mutationFn: (n: string) => create({ data: { name: n } }),
+  const { mutate: createProjectMutate, ...createMut } = useMutation({
+    mutationFn: (project: { name: string; prompt?: string }) => create({ data: project }),
     onSuccess: (row) => {
       qc.invalidateQueries({ queryKey: ["projects"] });
       navigate({ to: "/studio/$projectId", params: { projectId: row.id } });
@@ -38,10 +46,26 @@ function Dashboard() {
     onError: (e) => toast.error(e instanceof Error ? e.message : "Failed to create"),
   });
 
+  useEffect(() => {
+    if (pendingPromptHandled.current) return;
+    const prompt = window.sessionStorage.getItem(PENDING_PROJECT_PROMPT_KEY)?.trim();
+    if (!prompt) return;
+
+    pendingPromptHandled.current = true;
+    window.sessionStorage.removeItem(PENDING_PROJECT_PROMPT_KEY);
+    createProjectMutate({ name: suggestProjectName(prompt), prompt });
+  }, [createProjectMutate]);
+
   const delMut = useMutation({
     mutationFn: (id: string) => del({ data: { id } }),
     onSuccess: () => qc.invalidateQueries({ queryKey: ["projects"] }),
   });
+
+  function openCreateForm() {
+    setName("Untitled project");
+    setCreating(true);
+    createMut.reset();
+  }
 
   async function handleSignOut() {
     await qc.cancelQueries();
@@ -60,7 +84,7 @@ function Dashboard() {
             className="size-9 rounded-xl bg-surface-elevated flex items-center justify-center mb-3"
             aria-label="Architeq home"
           >
-            <div className="size-2.5 rounded-full bg-accent" />
+            <img src="/favicon.png" alt="" className="size-8 rounded-lg object-cover" />
           </Link>
           <div className="flex flex-col gap-1.5 w-full items-center">
             <button
@@ -70,7 +94,7 @@ function Dashboard() {
               <Layers className="size-4" />
             </button>
             <button
-              onClick={() => setCreating(true)}
+              onClick={openCreateForm}
               className="size-10 rounded-xl hover:bg-white/10 flex items-center justify-center transition"
               title="New project"
             >
@@ -102,7 +126,7 @@ function Dashboard() {
             </div>
             {!creating && (
               <button
-                onClick={() => setCreating(true)}
+                onClick={openCreateForm}
                 className="inline-flex items-center gap-2 rounded-full bg-primary text-primary-foreground px-5 py-3 text-sm font-medium hover:bg-primary/90 transition"
               >
                 <Plus className="size-4" /> New project
@@ -115,18 +139,39 @@ function Dashboard() {
               Free tier · preview
             </span>
 
+            {createMut.isPending && (
+              <div role="status" className="mb-6 flex items-center gap-2 rounded-2xl border border-border bg-surface-elevated px-5 py-4 text-sm text-muted-foreground">
+                <Loader2 className="size-4 animate-spin" /> Creating your project and opening the studio…
+              </div>
+            )}
+
+            {createMut.isError && (
+              <div role="alert" className="mb-6 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-destructive/30 bg-surface-elevated px-5 py-4 text-sm">
+                <p className="text-destructive">{createMut.error instanceof Error ? createMut.error.message : "Couldn't create your project."}</p>
+                <button
+                  onClick={() => createMut.variables && createProjectMutate(createMut.variables)}
+                  className="rounded-full border border-border px-4 py-2 font-medium hover:bg-muted transition"
+                >
+                  Try again
+                </button>
+              </div>
+            )}
+
             {creating && (
               <form
-                onSubmit={(e) => { e.preventDefault(); if (name.trim()) createMut.mutate(name.trim()); }}
+                onSubmit={(e) => { e.preventDefault(); if (name.trim()) createProjectMutate({ name: name.trim() }); }}
                 className="mb-10 p-6 rounded-3xl bg-surface-elevated border border-accent"
               >
-                <label className="text-xs uppercase tracking-[0.15em] text-muted-foreground mb-2 block">Project name</label>
+                <label htmlFor="project-name" className="text-xs uppercase tracking-[0.15em] text-muted-foreground mb-2 block">Project name</label>
                 <div className="flex flex-wrap gap-3">
                   <input
+                    id="project-name"
                     autoFocus
                     value={name}
                     onChange={(e) => setName(e.target.value)}
                     placeholder="Acme landing page"
+                    required
+                    maxLength={100}
                     className="flex-1 min-w-[220px] bg-surface border border-border rounded-full px-5 py-3 text-sm focus:outline-none focus:border-foreground/40"
                   />
                   <button
@@ -139,7 +184,7 @@ function Dashboard() {
                   </button>
                   <button
                     type="button"
-                    onClick={() => { setCreating(false); setName(""); }}
+                    onClick={() => { setCreating(false); setName("Untitled project"); createMut.reset(); }}
                     className="px-4 text-sm text-muted-foreground hover:text-foreground"
                   >
                     Cancel
@@ -152,12 +197,23 @@ function Dashboard() {
               <div className="flex items-center justify-center py-32 text-muted-foreground">
                 <Loader2 className="size-5 animate-spin" />
               </div>
+            ) : hasProjectsError ? (
+              <div role="alert" className="text-center py-24 border border-dashed border-border rounded-3xl bg-surface-elevated/60">
+                <p className="text-display text-3xl mb-3">Projects didn’t load.</p>
+                <p className="text-muted-foreground mb-6">{projectsError instanceof Error ? projectsError.message : "Check your connection and try again."}</p>
+                <button
+                  onClick={() => refetchProjects()}
+                  className="inline-flex items-center gap-2 rounded-full bg-primary text-primary-foreground px-5 py-3 text-sm font-medium"
+                >
+                  Try again
+                </button>
+              </div>
             ) : !projects || projects.length === 0 ? (
               <div className="text-center py-24 border border-dashed border-border rounded-3xl bg-surface-elevated/60">
                 <p className="text-display text-3xl mb-3">Nothing built yet.</p>
                 <p className="text-muted-foreground mb-6">Spin up your first project — describe it, ship it.</p>
                 <button
-                  onClick={() => setCreating(true)}
+                  onClick={openCreateForm}
                   className="inline-flex items-center gap-2 rounded-full bg-primary text-primary-foreground px-5 py-3 text-sm font-medium"
                 >
                   <Sparkles className="size-4" /> Start building
