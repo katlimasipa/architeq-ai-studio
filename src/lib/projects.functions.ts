@@ -350,8 +350,17 @@ export const generateSite = createServerFn({ method: "POST" })
       const result = await generateText({ model, messages: contextMessages, maxOutputTokens: 32000 });
       raw = result.text.trim();
     } catch (e) {
-      const err = e as { statusCode?: number; message?: string };
+      const err = e as { statusCode?: number; message?: string; responseBody?: string };
+      const details = `${err.message ?? ""} ${err.responseBody ?? ""}`;
       if (err.statusCode === 429) throw new Error("Rate limit reached. Try again in a moment.");
+      if (
+        (err.statusCode === 402 || err.statusCode === 403) &&
+        /valid credit card|payment card|billing|credits/i.test(details)
+      ) {
+        throw new Error(
+          "Vercel AI Gateway requires a payment card on file before it can process AI requests. Add one in Vercel AI settings, then retry.",
+        );
+      }
       if (err.statusCode === 402) throw new Error("AI credits exhausted. Add credits in workspace settings.");
       if (err.statusCode === 401 || err.statusCode === 403) {
         throw new Error(

@@ -124,9 +124,15 @@ function Integrations() {
                 )}
                 {ready && (
                   <p className="rounded-2xl border border-border bg-surface p-4 text-xs leading-relaxed text-muted-foreground">
-                    {name === "AI generation"
-                      ? `Ready to build and revise sites through ${data?.aiProvider ?? "the AI Gateway"}.`
-                      : "Ready to use from any of your projects. Connect it in a project’s Deploy panel to enable automatic updates."}
+                    {name === "AI generation" ? (
+                      data?.aiProvider === "Vercel AI Gateway" ? (
+                        "Connected through Vercel OIDC. Vercel may require a payment card on file or available AI Gateway credits before generation."
+                      ) : (
+                        `Ready to build and revise sites through ${data?.aiProvider ?? "the AI Gateway"}.`
+                      )
+                    ) : (
+                      "Ready to use from any of your projects. Connect it in a project’s Deploy panel to enable automatic updates."
+                    )}
                   </p>
                 )}
               </article>
