@@ -195,9 +195,9 @@ function Studio() {
 
   function updateInput(value: string, caret: number) {
     setInput(value);
-    const match = value.slice(0, caret).match(/(?:^|\s)\/([a-z0-9-]*)$/i);
+    const match = value.slice(0, caret).match(/(?:^|\s)\/{1,2}([a-z0-9-]*)$/i);
     if (!match) { setSlashMenu(false); return; }
-    setSlashStart(caret - match[0].lastIndexOf("/"));
+    setSlashStart(caret - match[0].length + match[0].search(/\/{1,2}/));
     setSlashTerm(match[1].toLowerCase());
     setSlashHighlight(0);
     setSlashMenu(true);
@@ -364,7 +364,8 @@ function Studio() {
 
             {gen.isError && (
               <div role="alert" className="rounded-xl border border-destructive/30 bg-surface p-3">
-                <p className="text-sm text-destructive">Your project is saved, but the first build didn’t finish. Your prompt is ready below so you can retry.</p>
+                <p className="text-sm text-destructive">Your project is saved, but generation didn’t finish.</p>
+                <p className="mt-1 text-xs leading-relaxed text-muted-foreground">{gen.error instanceof Error ? gen.error.message : "Your prompt is ready below. Review it and try again."}</p>
                 {gen.variables && (
                   <button
                     type="button"
@@ -394,7 +395,7 @@ function Studio() {
                 value={input}
                 onChange={(e) => updateInput(e.target.value, e.currentTarget.selectionStart)}
                 onKeyDown={(e) => {
-                  if (slashMenu && filteredSkills.length && e.key === "ArrowDown") { e.preventDefault(); setSlashHighlight((n) => (n + 1) % filteredSkills.length); return; }
+        if (slashMenu && filteredSkills.length && e.key === "ArrowDown") { e.preventDefault(); setSlashHighlight((n) => (n + 1) % filteredSkills.length); return; }
                   if (slashMenu && filteredSkills.length && e.key === "ArrowUp") { e.preventDefault(); setSlashHighlight((n) => (n - 1 + filteredSkills.length) % filteredSkills.length); return; }
                   if (slashMenu && e.key === "Escape") { e.preventDefault(); setSlashMenu(false); return; }
                   if (slashMenu && filteredSkills.length && e.key === "Enter") { e.preventDefault(); chooseSkill(filteredSkills[slashHighlight]); return; }

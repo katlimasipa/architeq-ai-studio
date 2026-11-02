@@ -1,7 +1,16 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
 import { useQuery } from "@tanstack/react-query";
-import { Cable, Check, CircleAlert, Database, Github, Globe, Loader2 } from "lucide-react";
+import {
+  Cable,
+  Check,
+  CircleAlert,
+  Database,
+  Github,
+  Globe,
+  Loader2,
+  Sparkles,
+} from "lucide-react";
 import { getIntegrationStatus } from "@/lib/integrations.functions";
 import { WorkspaceSidebar } from "@/components/workspace-sidebar";
 
@@ -18,6 +27,13 @@ function Integrations() {
     queryFn: () => getStatus(),
   });
   const items = [
+    {
+      name: "AI generation",
+      detail: "Build and revise sites from your prompts.",
+      ready: data?.ai,
+      icon: Sparkles,
+      variable: "LOVABLE_API_KEY",
+    },
     {
       name: "Supabase",
       detail: "Sign-in, account separation, and saving private projects and skills.",

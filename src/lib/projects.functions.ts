@@ -262,7 +262,7 @@ export const generateSite = createServerFn({ method: "POST" })
   )
   .handler(async ({ data, context }) => {
     const apiKey = process.env.LOVABLE_API_KEY;
-    if (!apiKey) throw new Error("AI service not configured");
+    if (!apiKey) throw new Error("AI generation isn’t configured yet. Add LOVABLE_API_KEY to the Vercel project environment and redeploy.");
 
     const { data: project, error: pErr } = await context.supabase
       .from("projects")
@@ -275,7 +275,7 @@ export const generateSite = createServerFn({ method: "POST" })
     const [{ data: history }, { data: assets }, { data: skillRows }, { data: existingPages }] = await Promise.all([
       context.supabase.from("messages").select("role, content").eq("project_id", data.projectId).eq("user_id", context.userId).order("created_at", { ascending: true }).limit(30),
       context.supabase.from("project_assets").select("kind, name, url").eq("project_id", data.projectId).eq("user_id", context.userId),
-      context.supabase.from("skills").select("slug, name, instructions"),
+      context.supabase.from("skills").select("slug, name, instructions, user_id"),
       (context.supabase as any).from("project_pages").select("path, title, html").eq("project_id", data.projectId).eq("user_id", context.userId).order("path", { ascending: true }),
     ]);
 
@@ -284,10 +284,18 @@ export const generateSite = createServerFn({ method: "POST" })
     });
 
     const invokedSkillSlugs = Array.from(
-      new Set(Array.from(data.message.matchAll(/(?:^|\s)\/([a-z0-9]+(?:-[a-z0-9]+)*)(?=$|\s|[.,!?])/gi), (m) => m[1].toLowerCase())),
+      new Set(Array.from(data.message.matchAll(/(?:^|\s)\/{1,2}([a-z0-9]+(?:-[a-z0-9]+)*)(?=$|\s|[.,!?])/gi), (m) => m[1].toLowerCase())),
     );
-    const invokedSkills = ((skillRows ?? []) as { slug: string; name: string; instructions: string }[])
-      .filter((skill) => invokedSkillSlugs.includes(skill.slug));
+    const availableSkills = (skillRows ?? []) as { slug: string; name: string; instructions: string; user_id: string | null }[];
+    const invokedSkills: typeof availableSkills = [];
+    for (const command of invokedSkillSlugs) {
+      const exactMatches = availableSkills.filter((skill) => skill.slug === command);
+      const prefixMatches = availableSkills.filter((skill) => skill.slug.startsWith(`${command}-`));
+      const match = exactMatches.find((skill) => skill.user_id === context.userId)
+        ?? exactMatches[0]
+        ?? (prefixMatches.length === 1 ? prefixMatches[0] : undefined);
+      if (match && !invokedSkills.some((skill) => skill.slug === match.slug)) invokedSkills.push(match);
+    }
     const skillBlock = invokedSkills.length
       ? `\n\nINVOKED SKILLS (apply only the skills explicitly called with /commands):\n${invokedSkills.map((s) => `--- SKILL: ${s.name} (/${s.slug}) ---\n${s.instructions}`).join("\n\n")}`
       : "";
