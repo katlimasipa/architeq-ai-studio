@@ -203,8 +203,9 @@ function Studio() {
   const previewSrc = isPublic && slug ? `/p/${slug}${previewPath === "/" ? "" : previewPath}` : null;
 
   return (
-    <div className="h-screen flex flex-col">
-      <header className="border-b border-border/40 backdrop-blur-xl bg-background/60 shrink-0">
+    <div className="h-screen bg-background p-3">
+      <div className="app-frame h-full flex flex-col overflow-hidden">
+      <header className="border-b border-border bg-surface/90 shrink-0">
         <div className="px-4 h-14 flex items-center justify-between gap-4">
           <div className="flex items-center gap-3 min-w-0">
             <button
@@ -444,6 +445,7 @@ function Studio() {
             </div>
           </aside>
         )}
+      </div>
       </div>
     </div>
   );
