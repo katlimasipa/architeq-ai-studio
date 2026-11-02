@@ -31,12 +31,26 @@ function Integrations() {
       name: "AI generation",
       detail: data?.aiProvider
         ? `Build and revise sites using ${data.aiProvider}.`
-        : "Build and revise sites from your prompts.",
+        : "Build and revise sites with Google Gemini, Vercel AI Gateway, or Lovable.",
       ready: data?.ai,
       icon: Sparkles,
-      variable: "AI_GATEWAY_API_KEY or LOVABLE_API_KEY",
-      setup:
-        "Vercel deployments can authenticate with a request-scoped OIDC token. If this project does not receive one, enable Secure Backend Access (OIDC) in Vercel, or set one of the environment variables above.",
+      variable: "GEMINI_API_KEY, AI_GATEWAY_API_KEY, or LOVABLE_API_KEY",
+      setup: (
+        <>
+          For a free-tier option, create a Gemini API key in{" "}
+          <a
+            href="https://aistudio.google.com/apikey"
+            target="_blank"
+            rel="noreferrer"
+            className="underline underline-offset-2"
+          >
+            Google AI Studio
+          </a>{" "}
+          and add it as <code className="rounded bg-muted px-1">GEMINI_API_KEY</code> in Vercel.
+          Eligible Google projects can use Gemini API free-tier limits. Vercel OIDC and a Lovable
+          key are also supported.
+        </>
+      ),
     },
     {
       name: "Supabase",
@@ -127,6 +141,8 @@ function Integrations() {
                     {name === "AI generation" ? (
                       data?.aiProvider === "Vercel AI Gateway" ? (
                         "Connected through Vercel OIDC. Vercel may require a payment card on file or available AI Gateway credits before generation."
+                      ) : data?.aiProvider === "Google Gemini" ? (
+                        "Connected to Google Gemini. Free-tier access depends on the Google project’s model eligibility and rate limits."
                       ) : (
                         `Ready to build and revise sites through ${data?.aiProvider ?? "the AI Gateway"}.`
                       )

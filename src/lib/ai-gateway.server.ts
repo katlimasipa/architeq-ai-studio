@@ -15,3 +15,11 @@ export function createVercelAiGatewayProvider(token: string) {
     apiKey: token,
   });
 }
+
+export function createGeminiAiProvider(apiKey: string) {
+  return createOpenAICompatible({
+    name: "google-gemini",
+    baseURL: "https://generativelanguage.googleapis.com/v1beta/openai/",
+    apiKey,
+  });
+}

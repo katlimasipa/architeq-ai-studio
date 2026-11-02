@@ -16,10 +16,10 @@ Server-side (set in Vercel/Netlify dashboard):
 - `GITHUB_TOKEN`
 - `VERCEL_TOKEN`
 
-AI generation uses Vercel AI Gateway with request-scoped Vercel OIDC when Secure Backend Access is
-enabled for the project. Otherwise, set `AI_GATEWAY_API_KEY` or `LOVABLE_API_KEY`. For local
-development, link the project with the Vercel CLI and run `vercel env pull` to make a Vercel OIDC
-token available.
+AI generation supports `GEMINI_API_KEY` (Google AI Studio), `LOVABLE_API_KEY`, or Vercel AI Gateway
+with request-scoped OIDC / `AI_GATEWAY_API_KEY`. Eligible Google projects can use Gemini API free
+tier limits. For local development, link the project with the Vercel CLI and run `vercel env pull`
+to make a Vercel OIDC token available.
 
 ## Vercel
 
