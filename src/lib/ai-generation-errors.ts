@@ -10,6 +10,9 @@ export function getProviderErrorMessage(error: unknown, usesVercelGateway: boole
   const statusCode = providerError?.statusCode;
 
   if (statusCode === 429) return "Rate limit reached. Try again in a moment.";
+  if (statusCode === 404) {
+    return "The selected AI model isn’t available to this API key. Check the model access and retry.";
+  }
   if (
     usesVercelGateway &&
     (statusCode === 402 || statusCode === 403) &&

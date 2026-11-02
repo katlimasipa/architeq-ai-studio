@@ -10,7 +10,7 @@ function mockOpenAIModel(fetchResponse) {
     apiKey: "test-key",
     fetch: async () => fetchResponse(),
   });
-  return provider("google/gemini-2.5-flash");
+  return provider("google/gemini-3.8-flash");
 }
 
 describe("AI generation provider errors", () => {
@@ -26,6 +26,11 @@ describe("AI generation provider errors", () => {
 
   test("keeps rate limit errors actionable", () => {
     expect(getProviderErrorMessage({ statusCode: 429 }, true)).toBe("Rate limit reached. Try again in a moment.");
+  });
+
+  test("explains when the configured model is unavailable", () => {
+    expect(getProviderErrorMessage({ statusCode: 404, message: "Not Found" }, false))
+      .toContain("isn’t available to this API key");
   });
 
   test("does not expose gateway-specific setup advice for other providers", () => {

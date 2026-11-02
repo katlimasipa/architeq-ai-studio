@@ -351,8 +351,8 @@ async function generateSiteWithProgress(
   const model = lovableApiKey
     ? createLovableAiGatewayProvider(lovableApiKey)("google/gemini-3-flash-preview")
     : geminiApiKey
-      ? createGeminiAiProvider(geminiApiKey)("gemini-2.5-flash")
-      : createVercelAiGatewayProvider(vercelGatewayToken!)("google/gemini-2.5-flash");
+      ? createGeminiAiProvider(geminiApiKey)("gemini-3.8-flash")
+      : createVercelAiGatewayProvider(vercelGatewayToken!)("google/gemini-3.8-flash");
 
   const contextMessages: { role: "user" | "assistant"; content: string }[] = [
     ...messageHistory.map((m) => ({ role: m.role as "user" | "assistant", content: m.content })),
