@@ -1,7 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import { createOpenAICompatible } from "@ai-sdk/openai-compatible";
 import { generateText } from "ai";
-import { getEmptyGenerationMessage, getProviderErrorMessage } from "./ai-generation-errors.ts";
+import { getEmptyGenerationMessage, getProviderErrorMessage, isTemporaryProviderError } from "./ai-generation-errors.ts";
 
 function mockOpenAIModel(fetchResponse) {
   const provider = createOpenAICompatible({
@@ -31,6 +31,12 @@ describe("AI generation provider errors", () => {
   test("explains when the configured model is unavailable", () => {
     expect(getProviderErrorMessage({ statusCode: 404, message: "Not Found" }, false))
       .toContain("isn’t available to this API key");
+  });
+
+  test("identifies retryable provider outages for model fallback", () => {
+    expect(isTemporaryProviderError({ statusCode: 503 })).toBe(true);
+    expect(isTemporaryProviderError({ statusCode: 429 })).toBe(true);
+    expect(isTemporaryProviderError({ statusCode: 404 })).toBe(false);
   });
 
   test("does not expose gateway-specific setup advice for other providers", () => {

@@ -1,7 +1,7 @@
 import { createServerFn } from "@tanstack/react-start";
 import { getRequest } from "@tanstack/react-start/server";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
-import { getEmptyGenerationMessage, getProviderErrorMessage } from "@/lib/ai-generation-errors";
+import { getEmptyGenerationMessage, getProviderErrorMessage, isTemporaryProviderError } from "@/lib/ai-generation-errors";
 import { z } from "zod";
 
 function makeSlug() {
@@ -348,11 +348,16 @@ async function generateSiteWithProgress(
     createVercelAiGatewayProvider,
   } = await import("./ai-gateway.server");
   const { generateText } = await import("ai");
-  const model = lovableApiKey
-    ? createLovableAiGatewayProvider(lovableApiKey)("google/gemini-3-flash-preview")
+  const geminiModels = [
+    { id: "gemini-3.8-flash", label: "Gemini 3.8 Flash" },
+    { id: "gemini-3.6-flash", label: "Gemini 3.6 Flash" },
+    { id: "gemini-3.5-flash-lite", label: "Gemini 3.5 Flash Lite" },
+  ];
+  const modelCandidates = lovableApiKey
+    ? [{ label: "Gemini 3 Flash Preview", model: createLovableAiGatewayProvider(lovableApiKey)("google/gemini-3-flash-preview") }]
     : geminiApiKey
-      ? createGeminiAiProvider(geminiApiKey)("gemini-3.8-flash")
-      : createVercelAiGatewayProvider(vercelGatewayToken!)("google/gemini-3.8-flash");
+      ? geminiModels.map(({ id, label }) => ({ label, model: createGeminiAiProvider(geminiApiKey)(id) }))
+      : geminiModels.map(({ id, label }) => ({ label, model: createVercelAiGatewayProvider(vercelGatewayToken!)(`google/${id}`) }));
 
   const contextMessages: { role: "user" | "assistant"; content: string }[] = [
     ...messageHistory.map((m) => ({ role: m.role as "user" | "assistant", content: m.content })),
@@ -378,14 +383,29 @@ async function generateSiteWithProgress(
     });
   }, 10_000);
   try {
-    const result = await generateText({
-      model,
-      system,
-      messages: contextMessages,
-      maxOutputTokens: 32000,
-    });
-    raw = result.text.trim();
-    if (!raw) throw new Error(getEmptyGenerationMessage(result.finishReason, result.rawFinishReason));
+    for (let index = 0; index < modelCandidates.length; index += 1) {
+      const candidate = modelCandidates[index];
+      try {
+        const result = await generateText({
+          model: candidate.model,
+          system,
+          messages: contextMessages,
+          maxOutputTokens: 32000,
+          maxRetries: 0,
+        });
+        raw = result.text.trim();
+        if (!raw) throw new Error(getEmptyGenerationMessage(result.finishReason, result.rawFinishReason));
+        break;
+      } catch (e) {
+        const nextCandidate = modelCandidates[index + 1];
+        if (!nextCandidate || !isTemporaryProviderError(e)) throw e;
+        report({
+          step: 2,
+          title: "Switching to a backup model",
+          detail: `${candidate.label} is temporarily busy. Trying ${nextCandidate.label}.`,
+        });
+      }
+    }
   } catch (e) {
     const usesVercelGateway = !lovableApiKey && !geminiApiKey;
     throw new Error(getProviderErrorMessage(e, usesVercelGateway));

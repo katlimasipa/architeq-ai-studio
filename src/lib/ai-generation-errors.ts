@@ -10,6 +10,9 @@ export function getProviderErrorMessage(error: unknown, usesVercelGateway: boole
   const statusCode = providerError?.statusCode;
 
   if (statusCode === 429) return "Rate limit reached. Try again in a moment.";
+  if ([408, 500, 502, 503, 504].includes(statusCode ?? 0)) {
+    return "The AI service is temporarily unavailable. Wait a moment and retry.";
+  }
   if (statusCode === 404) {
     return "The selected AI model isn’t available to this API key. Check the model access and retry.";
   }
@@ -25,6 +28,11 @@ export function getProviderErrorMessage(error: unknown, usesVercelGateway: boole
     return "The AI provider rejected the request. Check its API key, model access, or billing setup, then retry.";
   }
   return providerError?.message || "Generation failed";
+}
+
+export function isTemporaryProviderError(error: unknown) {
+  const statusCode = (error as ProviderError)?.statusCode;
+  return [408, 429, 500, 502, 503, 504].includes(statusCode ?? 0);
 }
 
 export function getEmptyGenerationMessage(finishReason: string, rawFinishReason?: string) {
