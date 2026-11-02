@@ -13,13 +13,13 @@ function pathToFile(path: string): string {
   return `${clean}/index.html`;
 }
 
-async function loadProjectFiles(supabase: any, projectId: string) {
+async function loadProjectFiles(supabase: any, projectId: string, userId: string) {
   const { data: project, error } = await supabase
-    .from("projects").select("id, name, html, slug").eq("id", projectId).maybeSingle();
+    .from("projects").select("id, name, html, slug, github_repo, vercel_project_id").eq("id", projectId).eq("user_id", userId).maybeSingle();
   if (error || !project) throw new Error("Project not found");
 
   const { data: pages } = await supabase
-    .from("project_pages").select("path, html").eq("project_id", projectId);
+    .from("project_pages").select("path, html").eq("project_id", projectId).eq("user_id", userId);
 
   const files: Record<string, string> = {};
   if (pages && pages.length) {
@@ -64,19 +64,22 @@ export const pushToGithub = createServerFn({ method: "POST" })
     z.object({
       projectId: z.string().uuid(),
       repoName: z.string().optional(),
-      isPrivate: z.boolean().optional().default(false),
+      isPrivate: z.boolean().optional().default(true),
     }).parse(d),
   )
   .handler(async ({ data, context }) => {
     const token = process.env.GITHUB_TOKEN;
     if (!token) throw new Error("GITHUB_TOKEN is not configured");
 
-    const { project, files } = await loadProjectFiles(context.supabase, data.projectId);
+    const { project, files } = await loadProjectFiles(context.supabase, data.projectId, context.userId);
     const user = await gh(token, "/user");
     const owner = user.login as string;
 
-    const desiredName = slugifyRepo(data.repoName || `${project.name}-${project.slug}`);
-    let repoFullName = `${owner}/${desiredName}`;
+    const desiredName = slugifyRepo(project.github_repo?.split("/").at(-1) || data.repoName || `${project.name}-${project.slug}`);
+    let repoFullName = project.github_repo || `${owner}/${desiredName}`;
+    if (repoFullName.split("/")[0]?.toLowerCase() !== owner.toLowerCase()) {
+      throw new Error("The connected GitHub repository belongs to a different GitHub account. Reconnect it with the matching account.");
+    }
 
     // Check if repo exists already (re-deploy case)
     const existing = await fetch(`https://api.github.com/repos/${repoFullName}`, {
@@ -116,13 +119,21 @@ export const pushToGithub = createServerFn({ method: "POST" })
     const baseTreeSha = baseCommit.tree.sha as string;
 
     // Create blobs
-    const tree: { path: string; mode: "100644"; type: "blob"; sha: string }[] = [];
+    const tree: { path: string; mode: "100644"; type: "blob"; sha: string | null }[] = [];
     for (const [filePath, content] of Object.entries(files)) {
       const blob = await gh(token, `/repos/${repoFullName}/git/blobs`, {
         method: "POST",
         body: JSON.stringify({ content, encoding: "utf-8" }),
       });
       tree.push({ path: filePath, mode: "100644", type: "blob", sha: blob.sha });
+    }
+
+    const remoteTree = await gh(token, `/repos/${repoFullName}/git/trees/${baseTreeSha}?recursive=1`);
+    const currentFiles = new Set(Object.keys(files));
+    for (const entry of remoteTree.tree as { path: string; type: string }[]) {
+      if (entry.type === "blob" && entry.path.toLowerCase().endsWith(".html") && !currentFiles.has(entry.path)) {
+        tree.push({ path: entry.path, mode: "100644", type: "blob", sha: null });
+      }
     }
 
     const newTree = await gh(token, `/repos/${repoFullName}/git/trees`, {
@@ -141,14 +152,14 @@ export const pushToGithub = createServerFn({ method: "POST" })
 
     await gh(token, `/repos/${repoFullName}/git/refs/heads/${branch}`, {
       method: "PATCH",
-      body: JSON.stringify({ sha: commit.sha, force: true }),
+      body: JSON.stringify({ sha: commit.sha }),
     });
 
     await context.supabase.from("projects").update({
       github_repo: repoFullName,
       github_url: repoUrl,
       last_deployed_at: new Date().toISOString(),
-    } as any).eq("id", data.projectId);
+    } as any).eq("id", data.projectId).eq("user_id", context.userId);
 
     return { repoFullName, repoUrl };
   });
@@ -178,7 +189,7 @@ export const deployToVercel = createServerFn({ method: "POST" })
     const token = process.env.VERCEL_TOKEN;
     if (!token) throw new Error("VERCEL_TOKEN is not configured");
 
-    const { project, files } = await loadProjectFiles(context.supabase, data.projectId);
+    const { project, files } = await loadProjectFiles(context.supabase, data.projectId, context.userId);
     const projectName = slugifyRepo(`${project.name}-${project.slug}`);
 
     // Build inline files array — Vercel v13 supports `data` (base64) or `file` + content
@@ -192,6 +203,7 @@ export const deployToVercel = createServerFn({ method: "POST" })
       method: "POST",
       body: JSON.stringify({
         name: projectName,
+        ...(project.vercel_project_id ? { project: project.vercel_project_id } : {}),
         files: filesPayload,
         target: "production",
         projectSettings: {
@@ -204,13 +216,13 @@ export const deployToVercel = createServerFn({ method: "POST" })
     });
 
     const deployUrl = `https://${deployment.url}`;
-    const aliasUrl = deployment.alias && deployment.alias[0] ? `https://${deployment.alias[0]}` : deployUrl;
+    const aliasUrl = deployment.alias && deployment.alias[0] ? `https://${deployment.alias[0]}` : `https://${projectName}.vercel.app`;
 
     await context.supabase.from("projects").update({
       vercel_project_id: deployment.projectId ?? projectName,
       vercel_url: aliasUrl,
       last_deployed_at: new Date().toISOString(),
-    } as any).eq("id", data.projectId);
+    } as any).eq("id", data.projectId).eq("user_id", context.userId);
 
     return { url: aliasUrl, deploymentId: deployment.id, inspectorUrl: deployment.inspectorUrl ?? null };
   });

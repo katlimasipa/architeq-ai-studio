@@ -4,10 +4,11 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { listProjects, createProject, deleteProject } from "@/lib/projects.functions";
 import { supabase } from "@/integrations/supabase/client";
 import { useEffect, useRef, useState } from "react";
-import { Plus, Sparkles, LogOut, Trash2, Loader2, ArrowUpRight, Layers } from "lucide-react";
+import { Plus, Sparkles, Trash2, Loader2, ArrowUpRight } from "lucide-react";
 import { toast } from "sonner";
 import { formatDistanceToNow } from "date-fns";
 import { PENDING_PROJECT_PROMPT_KEY, suggestProjectName } from "@/lib/project-name";
+import { WorkspaceSidebar } from "@/components/workspace-sidebar";
 
 export const Route = createFileRoute("/_authenticated/dashboard")({
   head: () => ({ meta: [{ title: "Dashboard — Architeq" }] }),
@@ -15,6 +16,7 @@ export const Route = createFileRoute("/_authenticated/dashboard")({
 });
 
 function Dashboard() {
+  const { user } = Route.useRouteContext();
   const navigate = useNavigate();
   const router = useRouter();
   const qc = useQueryClient();
@@ -33,7 +35,7 @@ function Dashboard() {
     error: projectsError,
     refetch: refetchProjects,
   } = useQuery({
-    queryKey: ["projects"],
+    queryKey: ["projects", user.id],
     queryFn: () => list(),
   });
 
@@ -77,43 +79,7 @@ function Dashboard() {
   return (
     <div className="min-h-screen bg-background p-3 md:p-5">
       <div className="app-frame flex overflow-hidden min-h-[calc(100vh-24px)] md:min-h-[calc(100vh-40px)]">
-        {/* Dark icon rail */}
-        <aside className="rail w-14 md:w-16 shrink-0 flex flex-col items-center py-4 gap-2">
-          <Link
-            to="/"
-            className="size-9 rounded-xl bg-surface-elevated flex items-center justify-center mb-3"
-            aria-label="Architeq home"
-          >
-            <img src="/favicon.png" alt="" className="size-8 rounded-lg object-cover" />
-          </Link>
-          <div className="flex flex-col gap-1.5 w-full items-center">
-            <button
-              className="size-10 rounded-xl bg-white/10 flex items-center justify-center text-white"
-              title="Projects"
-            >
-              <Layers className="size-4" />
-            </button>
-            <button
-              onClick={openCreateForm}
-              className="size-10 rounded-xl hover:bg-white/10 flex items-center justify-center transition"
-              title="New project"
-            >
-              <Plus className="size-4" />
-            </button>
-          </div>
-          <div className="mt-auto flex flex-col items-center gap-2">
-            <button
-              onClick={handleSignOut}
-              className="size-10 rounded-xl hover:bg-white/10 flex items-center justify-center transition"
-              title="Sign out"
-            >
-              <LogOut className="size-4" />
-            </button>
-            <div className="size-9 rounded-full bg-accent flex items-center justify-center text-accent-foreground text-xs font-semibold" title="Free tier">
-              A
-            </div>
-          </div>
-        </aside>
+        <WorkspaceSidebar active="projects" email={user.email ?? undefined} onNewProject={openCreateForm} onSignOut={handleSignOut} />
 
         {/* Main panel */}
         <div className="flex-1 flex flex-col min-w-0">
@@ -231,7 +197,7 @@ function Dashboard() {
                       params={{ projectId: p.id }}
                       className="block"
                     >
-                      <h3 className="text-display text-2xl mb-2">{p.name}</h3>
+                      <div className="mb-2 flex items-start justify-between gap-2 pr-6"><h3 className="text-display text-2xl">{p.name}</h3><span className={`rounded-full px-2 py-1 text-[10px] ${p.is_public ? "bg-accent/70 text-foreground" : "bg-muted text-muted-foreground"}`}>{p.is_public ? "Shared" : "Private"}</span></div>
                       <p className="text-sm text-muted-foreground line-clamp-2 mb-8 min-h-[2.5rem]">
                         {p.prompt || "No prompt yet — open to start building."}
                       </p>

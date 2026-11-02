@@ -41,7 +41,7 @@ export const deleteSkill = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((d: unknown) => z.object({ id: z.string().uuid() }).parse(d))
   .handler(async ({ data, context }) => {
-    const { error } = await context.supabase.from("skills").delete().eq("id", data.id);
+    const { error } = await context.supabase.from("skills").delete().eq("id", data.id).eq("user_id", context.userId);
     if (error) throw new Error(error.message);
     return { ok: true };
   });
@@ -52,6 +52,10 @@ export const toggleProjectSkill = createServerFn({ method: "POST" })
     z.object({ projectId: z.string().uuid(), skillId: z.string().uuid(), active: z.boolean() }).parse(d),
   )
   .handler(async ({ data, context }) => {
+    const { data: project } = await context.supabase.from("projects").select("id").eq("id", data.projectId).eq("user_id", context.userId).maybeSingle();
+    if (!project) throw new Error("Project not found");
+    const { data: skill } = await context.supabase.from("skills").select("id").eq("id", data.skillId).maybeSingle();
+    if (!skill) throw new Error("Skill not found");
     if (data.active) {
       const { error } = await context.supabase.from("project_skills").insert({
         project_id: data.projectId, skill_id: data.skillId, user_id: context.userId,
@@ -59,7 +63,7 @@ export const toggleProjectSkill = createServerFn({ method: "POST" })
       if (error && !error.message.includes("duplicate")) throw new Error(error.message);
     } else {
       await context.supabase.from("project_skills")
-        .delete().eq("project_id", data.projectId).eq("skill_id", data.skillId);
+        .delete().eq("project_id", data.projectId).eq("skill_id", data.skillId).eq("user_id", context.userId);
     }
     return { ok: true };
   });

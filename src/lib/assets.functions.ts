@@ -14,6 +14,8 @@ export const uploadAsset = createServerFn({ method: "POST" })
     }).parse(d),
   )
   .handler(async ({ data, context }) => {
+    const { data: project } = await context.supabase.from("projects").select("id").eq("id", data.projectId).eq("user_id", context.userId).maybeSingle();
+    if (!project) throw new Error("Project not found");
     const bytes = Uint8Array.from(atob(data.dataBase64), (c) => c.charCodeAt(0));
     if (bytes.byteLength > 8 * 1024 * 1024) throw new Error("File too large (max 8MB)");
     const safeName = data.name.replace(/[^a-zA-Z0-9._-]/g, "_");
@@ -46,10 +48,10 @@ export const deleteAsset = createServerFn({ method: "POST" })
   .inputValidator((d: unknown) => z.object({ id: z.string().uuid() }).parse(d))
   .handler(async ({ data, context }) => {
     const { data: a } = await context.supabase
-      .from("project_assets").select("storage_path").eq("id", data.id).maybeSingle();
+      .from("project_assets").select("storage_path").eq("id", data.id).eq("user_id", context.userId).maybeSingle();
     if (a?.storage_path) {
       await context.supabase.storage.from("project-assets").remove([a.storage_path]);
     }
-    await context.supabase.from("project_assets").delete().eq("id", data.id);
+    await context.supabase.from("project_assets").delete().eq("id", data.id).eq("user_id", context.userId);
     return { ok: true };
   });

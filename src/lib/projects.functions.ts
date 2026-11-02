@@ -12,6 +12,7 @@ export const listProjects = createServerFn({ method: "GET" })
     const { data, error } = await context.supabase
       .from("projects")
       .select("id, name, prompt, updated_at, created_at, slug, version, is_public, github_url, vercel_url")
+      .eq("user_id", context.userId)
       .order("updated_at", { ascending: false });
     if (error) throw new Error(error.message);
     return data ?? [];
@@ -25,16 +26,17 @@ export const getProject = createServerFn({ method: "GET" })
       .from("projects")
       .select("*")
       .eq("id", data.id)
+      .eq("user_id", context.userId)
       .maybeSingle();
     if (error) throw new Error(error.message);
     if (!project) throw new Error("Project not found");
 
     const [messagesRes, assetsRes, versionsRes, skillsRes, pagesRes] = await Promise.all([
-      context.supabase.from("messages").select("id, role, content, created_at").eq("project_id", data.id).order("created_at", { ascending: true }),
-      context.supabase.from("project_assets").select("*").eq("project_id", data.id).order("created_at", { ascending: false }),
-      context.supabase.from("project_versions").select("id, version, prompt, created_at").eq("project_id", data.id).order("version", { ascending: false }),
-      context.supabase.from("project_skills").select("skill_id, skills(id, name, slug, description, instructions, is_global)").eq("project_id", data.id),
-      (context.supabase as any).from("project_pages").select("id, path, title, updated_at").eq("project_id", data.id).order("path", { ascending: true }),
+      context.supabase.from("messages").select("id, role, content, created_at").eq("project_id", data.id).eq("user_id", context.userId).order("created_at", { ascending: true }),
+      context.supabase.from("project_assets").select("*").eq("project_id", data.id).eq("user_id", context.userId).order("created_at", { ascending: false }),
+      context.supabase.from("project_versions").select("id, version, prompt, created_at").eq("project_id", data.id).eq("user_id", context.userId).order("version", { ascending: false }),
+      context.supabase.from("project_skills").select("skill_id, skills(id, name, slug, description, instructions, is_global)").eq("project_id", data.id).eq("user_id", context.userId),
+      (context.supabase as any).from("project_pages").select("id, path, title, updated_at").eq("project_id", data.id).eq("user_id", context.userId).order("path", { ascending: true }),
     ]);
 
     return {
@@ -55,6 +57,7 @@ export const getProjectPage = createServerFn({ method: "GET" })
       .from("project_pages")
       .select("html, title, path")
       .eq("project_id", data.projectId)
+      .eq("user_id", context.userId)
       .eq("path", data.path)
       .maybeSingle();
     if (error) throw new Error(error.message);
@@ -72,22 +75,16 @@ export const createProject = createServerFn({ method: "POST" })
   .handler(async ({ data, context }) => {
     const { data: row, error } = await context.supabase
       .from("projects")
-      .insert({ name: data.name, prompt: data.prompt?.trim() ?? "", user_id: context.userId, slug: makeSlug() })
+      .insert({
+        name: data.name,
+        prompt: data.prompt?.trim() ?? "",
+        user_id: context.userId,
+        slug: makeSlug(),
+        is_public: false,
+      })
       .select("id")
       .single();
     if (error) throw new Error(error.message);
-
-    const { data: imp } = await context.supabase
-      .from("skills")
-      .select("id")
-      .eq("slug", "impeccable-design")
-      .is("user_id", null)
-      .maybeSingle();
-    if (imp) {
-      await context.supabase
-        .from("project_skills")
-        .insert({ project_id: row.id, skill_id: imp.id, user_id: context.userId });
-    }
     return row;
   });
 
@@ -95,7 +92,11 @@ export const deleteProject = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((d: unknown) => z.object({ id: z.string().uuid() }).parse(d))
   .handler(async ({ data, context }) => {
-    const { error } = await context.supabase.from("projects").delete().eq("id", data.id);
+    const { error } = await context.supabase
+      .from("projects")
+      .delete()
+      .eq("id", data.id)
+      .eq("user_id", context.userId);
     if (error) throw new Error(error.message);
     return { ok: true };
   });
@@ -105,7 +106,10 @@ export const togglePublic = createServerFn({ method: "POST" })
   .inputValidator((d: unknown) => z.object({ id: z.string().uuid(), is_public: z.boolean() }).parse(d))
   .handler(async ({ data, context }) => {
     const { error } = await context.supabase
-      .from("projects").update({ is_public: data.is_public }).eq("id", data.id);
+      .from("projects")
+      .update({ is_public: data.is_public })
+      .eq("id", data.id)
+      .eq("user_id", context.userId);
     if (error) throw new Error(error.message);
     return { ok: true };
   });
@@ -115,10 +119,18 @@ export const restoreVersion = createServerFn({ method: "POST" })
   .inputValidator((d: unknown) => z.object({ projectId: z.string().uuid(), versionId: z.string().uuid() }).parse(d))
   .handler(async ({ data, context }) => {
     const { data: v, error } = await context.supabase
-      .from("project_versions").select("html, prompt").eq("id", data.versionId).maybeSingle();
+      .from("project_versions")
+      .select("html, prompt")
+      .eq("id", data.versionId)
+      .eq("project_id", data.projectId)
+      .eq("user_id", context.userId)
+      .maybeSingle();
     if (error || !v) throw new Error("Version not found");
     const { error: uErr } = await context.supabase
-      .from("projects").update({ html: v.html, prompt: v.prompt }).eq("id", data.projectId);
+      .from("projects")
+      .update({ html: v.html, prompt: v.prompt })
+      .eq("id", data.projectId)
+      .eq("user_id", context.userId);
     if (uErr) throw new Error(uErr.message);
     // Re-parse pages from the version HTML
     const pages = parsePages(v.html);
@@ -210,13 +222,13 @@ async function syncPages(
   // Upsert each page (don't delete missing — edits only update mentioned pages)
   for (const p of pages) {
     const { data: existing } = await supabase
-      .from("project_pages").select("id, version").eq("project_id", projectId).eq("path", p.path).maybeSingle();
+      .from("project_pages").select("id, version, title").eq("project_id", projectId).eq("user_id", userId).eq("path", p.path).maybeSingle();
     if (existing) {
       await supabase.from("project_pages").update({
         title: p.title || existing.title || "",
         html: p.html,
         version: (existing.version ?? 1) + 1,
-      }).eq("id", existing.id);
+      }).eq("id", existing.id).eq("user_id", userId);
     } else {
       await supabase.from("project_pages").insert({
         project_id: projectId, user_id: userId, path: p.path, title: p.title || "", html: p.html,
@@ -231,7 +243,11 @@ export const deletePage = createServerFn({ method: "POST" })
   .handler(async ({ data, context }) => {
     if (data.path === "/") throw new Error("Cannot delete the home page");
     const { error } = await (context.supabase as any)
-      .from("project_pages").delete().eq("project_id", data.projectId).eq("path", data.path);
+      .from("project_pages")
+      .delete()
+      .eq("project_id", data.projectId)
+      .eq("user_id", context.userId)
+      .eq("path", data.path);
     if (error) throw new Error(error.message);
     return { ok: true };
   });
@@ -252,23 +268,28 @@ export const generateSite = createServerFn({ method: "POST" })
       .from("projects")
       .select("id, html, name, version, design_dna")
       .eq("id", data.projectId)
+      .eq("user_id", context.userId)
       .maybeSingle();
     if (pErr || !project) throw new Error("Project not found");
 
     const [{ data: history }, { data: assets }, { data: skillRows }, { data: existingPages }] = await Promise.all([
-      context.supabase.from("messages").select("role, content").eq("project_id", data.projectId).order("created_at", { ascending: true }).limit(30),
-      context.supabase.from("project_assets").select("kind, name, url").eq("project_id", data.projectId),
-      context.supabase.from("project_skills").select("skills(name, instructions)").eq("project_id", data.projectId),
-      (context.supabase as any).from("project_pages").select("path, title, html").eq("project_id", data.projectId).order("path", { ascending: true }),
+      context.supabase.from("messages").select("role, content").eq("project_id", data.projectId).eq("user_id", context.userId).order("created_at", { ascending: true }).limit(30),
+      context.supabase.from("project_assets").select("kind, name, url").eq("project_id", data.projectId).eq("user_id", context.userId),
+      context.supabase.from("skills").select("slug, name, instructions"),
+      (context.supabase as any).from("project_pages").select("path, title, html").eq("project_id", data.projectId).eq("user_id", context.userId).order("path", { ascending: true }),
     ]);
 
     await context.supabase.from("messages").insert({
       project_id: data.projectId, user_id: context.userId, role: "user", content: data.message,
     });
 
-    const skills = (skillRows ?? []).map((r: any) => r.skills).filter(Boolean) as { name: string; instructions: string }[];
-    const skillBlock = skills.length
-      ? `\n\nACTIVE SKILLS (stack — apply ALL simultaneously):\n${skills.map((s) => `--- SKILL: ${s.name} ---\n${s.instructions}`).join("\n\n")}`
+    const invokedSkillSlugs = Array.from(
+      new Set(Array.from(data.message.matchAll(/(?:^|\s)\/([a-z0-9]+(?:-[a-z0-9]+)*)(?=$|\s|[.,!?])/gi), (m) => m[1].toLowerCase())),
+    );
+    const invokedSkills = ((skillRows ?? []) as { slug: string; name: string; instructions: string }[])
+      .filter((skill) => invokedSkillSlugs.includes(skill.slug));
+    const skillBlock = invokedSkills.length
+      ? `\n\nINVOKED SKILLS (apply only the skills explicitly called with /commands):\n${invokedSkills.map((s) => `--- SKILL: ${s.name} (/${s.slug}) ---\n${s.instructions}`).join("\n\n")}`
       : "";
 
     const assetBlock = assets && assets.length
@@ -345,7 +366,7 @@ export const generateSite = createServerFn({ method: "POST" })
       }),
       context.supabase.from("projects").update({
         html: indexHtml, prompt: data.message, version: newVersion, design_dna: dna as any,
-      }).eq("id", data.projectId),
+      }).eq("id", data.projectId).eq("user_id", context.userId),
     ]);
 
     return { html: indexHtml, summary, version: newVersion, pages: parsed.map((p) => ({ path: p.path, title: p.title })) };

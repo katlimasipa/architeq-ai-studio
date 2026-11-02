@@ -23,8 +23,10 @@ export const Route = createFileRoute("/_authenticated/studio/$projectId")({
 });
 
 type Panel = null | "assets" | "skills" | "versions" | "share" | "pages" | "deploy";
+type SkillCommandOption = { id: string; name: string; slug: string; description: string };
 
 function Studio() {
+  const { user } = Route.useRouteContext();
   const { projectId } = Route.useParams();
   const router = useRouter();
   const qc = useQueryClient();
@@ -47,22 +49,28 @@ function Studio() {
   const [tab, setTab] = useState<"preview" | "code">("preview");
   const [panel, setPanel] = useState<Panel>(null);
   const [previewPath, setPreviewPath] = useState<string>("/");
+  const [slashMenu, setSlashMenu] = useState(false);
+  const [slashTerm, setSlashTerm] = useState("");
+  const [slashStart, setSlashStart] = useState(0);
+  const [slashHighlight, setSlashHighlight] = useState(0);
   const scrollRef = useRef<HTMLDivElement>(null);
+  const inputRef = useRef<HTMLTextAreaElement>(null);
   const initialPromptStarted = useRef<string | null>(null);
+  const syncedVersion = useRef<number | null>(null);
 
   const { data, isLoading } = useQuery({
-    queryKey: ["project", projectId],
+    queryKey: ["project", user.id, projectId],
     queryFn: () => get({ data: { id: projectId } }),
   });
 
   const { data: allSkills } = useQuery({
-    queryKey: ["skills"], queryFn: () => listSk(), enabled: panel === "skills",
+    queryKey: ["skills", user.id], queryFn: () => listSk(),
   });
 
   const gen = useMutation({
     mutationFn: (msg: string) => generate({ data: { projectId, message: msg } }),
     onSuccess: (r) => {
-      qc.invalidateQueries({ queryKey: ["project", projectId] });
+      qc.invalidateQueries({ queryKey: ["project", user.id, projectId] });
       qc.invalidateQueries({ queryKey: ["projects"] });
       toast.success(`Site updated — v${r.version}`);
     },
@@ -83,13 +91,13 @@ function Studio() {
 
   const pubMut = useMutation({
     mutationFn: (v: boolean) => tPub({ data: { id: projectId, is_public: v } }),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ["project", projectId] }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["project", user.id, projectId] }),
   });
 
   const restoreMut = useMutation({
     mutationFn: (versionId: string) => restore({ data: { projectId, versionId } }),
     onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ["project", projectId] });
+      qc.invalidateQueries({ queryKey: ["project", user.id, projectId] });
       toast.success("Version restored");
     },
   });
@@ -98,7 +106,7 @@ function Studio() {
     mutationFn: async (file: { name: string; type: string; b64: string; kind: "logo" | "reference" | "image" }) =>
       upload({ data: { projectId, kind: file.kind, name: file.name, contentType: file.type, dataBase64: file.b64 } }),
     onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ["project", projectId] });
+      qc.invalidateQueries({ queryKey: ["project", user.id, projectId] });
       toast.success("Asset uploaded");
     },
     onError: (e) => toast.error(e instanceof Error ? e.message : "Upload failed"),
@@ -106,19 +114,19 @@ function Studio() {
 
   const delAssetMut = useMutation({
     mutationFn: (id: string) => delAsset({ data: { id } }),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ["project", projectId] }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["project", user.id, projectId] }),
   });
 
   const toggleSkMut = useMutation({
     mutationFn: ({ skillId, active }: { skillId: string; active: boolean }) =>
       toggleSk({ data: { projectId, skillId, active } }),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ["project", projectId] }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["project", user.id, projectId] }),
   });
 
   const createSkMut = useMutation({
     mutationFn: (d: { name: string; description: string; instructions: string }) => createSk({ data: d }),
     onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ["skills"] });
+      qc.invalidateQueries({ queryKey: ["skills", user.id] });
       toast.success("Skill created");
     },
     onError: (e) => toast.error(e instanceof Error ? e.message : "Failed"),
@@ -126,13 +134,13 @@ function Studio() {
 
   const delSkMut = useMutation({
     mutationFn: (id: string) => delSk({ data: { id } }),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ["skills"] }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["skills", user.id] }),
   });
 
   const delPageMut = useMutation({
     mutationFn: (path: string) => delPage({ data: { projectId, path } }),
     onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ["project", projectId] });
+      qc.invalidateQueries({ queryKey: ["project", user.id, projectId] });
       toast.success("Page deleted");
     },
     onError: (e) => toast.error(e instanceof Error ? e.message : "Failed"),
@@ -142,7 +150,7 @@ function Studio() {
     mutationFn: (opts: { repoName?: string; isPrivate: boolean }) =>
       ghPush({ data: { projectId, repoName: opts.repoName, isPrivate: opts.isPrivate } }),
     onSuccess: (r) => {
-      qc.invalidateQueries({ queryKey: ["project", projectId] });
+      qc.invalidateQueries({ queryKey: ["project", user.id, projectId] });
       qc.invalidateQueries({ queryKey: ["projects"] });
       toast.success(`Pushed to GitHub — ${r.repoFullName}`);
     },
@@ -152,13 +160,25 @@ function Studio() {
   const vercelMut = useMutation({
     mutationFn: () => vercelDeploy({ data: { projectId } }),
     onSuccess: (r) => {
-      qc.invalidateQueries({ queryKey: ["project", projectId] });
+      qc.invalidateQueries({ queryKey: ["project", user.id, projectId] });
       qc.invalidateQueries({ queryKey: ["projects"] });
-      toast.success("Deployed to Vercel");
-      window.open(r.url, "_blank");
+      toast.success(`Deployed to Vercel — ${r.url}`);
     },
     onError: (e) => toast.error(e instanceof Error ? e.message : "Vercel deploy failed"),
   });
+  const pushGithubMutate = ghMut.mutate;
+  const deployVercelMutate = vercelMut.mutate;
+
+  useEffect(() => {
+    const version = gen.data?.version;
+    if (!gen.isSuccess || !version || !data?.project || syncedVersion.current === version) return;
+    const hasGithub = Boolean(data.project.github_repo || data.project.github_url);
+    const hasVercel = Boolean(data.project.vercel_url || data.project.vercel_project_id);
+    if (!hasGithub && !hasVercel) return;
+    syncedVersion.current = version;
+    if (hasGithub) pushGithubMutate({ repoName: data.project.github_repo?.split("/").at(-1), isPrivate: true });
+    if (hasVercel) deployVercelMutate();
+  }, [data?.project, gen.data?.version, gen.isSuccess, pushGithubMutate, deployVercelMutate]);
 
   useEffect(() => {
     scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: "smooth" });
@@ -169,7 +189,28 @@ function Studio() {
     const v = input.trim();
     if (!v || gen.isPending) return;
     setInput("");
+    setSlashMenu(false);
     gen.mutate(v);
+  }
+
+  function updateInput(value: string, caret: number) {
+    setInput(value);
+    const match = value.slice(0, caret).match(/(?:^|\s)\/([a-z0-9-]*)$/i);
+    if (!match) { setSlashMenu(false); return; }
+    setSlashStart(caret - match[0].lastIndexOf("/"));
+    setSlashTerm(match[1].toLowerCase());
+    setSlashHighlight(0);
+    setSlashMenu(true);
+  }
+
+  function chooseSkill(skill: SkillCommandOption) {
+    const before = input.slice(0, slashStart);
+    const after = inputRef.current?.value.slice(inputRef.current.selectionStart) ?? "";
+    const next = `${before}/${skill.slug} ${after}`;
+    const caret = before.length + skill.slug.length + 2;
+    setInput(next);
+    setSlashMenu(false);
+    requestAnimationFrame(() => { inputRef.current?.focus(); inputRef.current?.setSelectionRange(caret, caret); });
   }
 
   async function handleFile(file: File, kind: "logo" | "reference" | "image") {
@@ -210,10 +251,14 @@ function Studio() {
   const activeSkills = data?.activeSkills ?? [];
   const pages = data?.pages ?? [];
   const slug = data?.project.slug ?? "";
-  const isPublic = data?.project.is_public ?? true;
+  const isPublic = data?.project.is_public ?? false;
   const project = data?.project as any;
   const shareUrl = typeof window !== "undefined" ? `${window.location.origin}/p/${slug}` : `/p/${slug}`;
   const previewSrc = isPublic && slug ? `/p/${slug}${previewPath === "/" ? "" : previewPath}` : null;
+  const pinnedSkillIds = new Set(activeSkills.map((skill: { id: string }) => skill.id));
+  const filteredSkills = (allSkills ?? []).filter((skill) => `${skill.name} ${skill.slug}`.toLowerCase().includes(slashTerm))
+    .sort((a, b) => Number(pinnedSkillIds.has(b.id)) - Number(pinnedSkillIds.has(a.id)))
+    .slice(0, 8);
 
   return (
     <div className="h-screen bg-background p-3">
@@ -236,7 +281,7 @@ function Studio() {
             ) : null}
             {activeSkills.length > 0 && (
               <span className="hidden md:inline-flex items-center gap-1 text-[10px] uppercase tracking-wider text-leaf border border-ember/30 rounded-full px-2 py-0.5">
-                <Zap className="size-3" /> {activeSkills.length} skill{activeSkills.length > 1 ? "s" : ""}
+                <Zap className="size-3" /> {activeSkills.length} pinned
               </span>
             )}
           </div>
@@ -251,6 +296,7 @@ function Studio() {
           </div>
 
           <div className="flex items-center gap-1">
+            <Link to="/skills" className="hidden rounded-full border border-border px-3 py-1.5 text-xs text-muted-foreground transition hover:text-foreground lg:inline-flex">Skill library</Link>
             <PanelBtn icon={<FileCode className="size-4" />} label="Pages" active={panel === "pages"} onClick={() => setPanel(panel === "pages" ? null : "pages")} badge={pages.length || (html ? 1 : 0)} />
             <PanelBtn icon={<ImageIcon className="size-4" />} label="Assets" active={panel === "assets"} onClick={() => setPanel(panel === "assets" ? null : "assets")} badge={assets.length} />
             <PanelBtn icon={<Wand2 className="size-4" />} label="Skills" active={panel === "skills"} onClick={() => setPanel(panel === "skills" ? null : "skills")} badge={activeSkills.length} />
@@ -259,9 +305,9 @@ function Studio() {
             <PanelBtn icon={<Rocket className="size-4" />} label="Deploy" active={panel === "deploy"} onClick={() => setPanel(panel === "deploy" ? null : "deploy")} />
             {html && (
               <>
-                <button onClick={openInNewTab} className="p-1.5 rounded-md hover:bg-surface text-muted-foreground hover:text-foreground" title="Open live preview">
+                {isPublic && <button onClick={openInNewTab} className="p-1.5 rounded-md hover:bg-surface text-muted-foreground hover:text-foreground" title="Open live preview">
                   <ExternalLink className="size-4" />
-                </button>
+                </button>}
                 <button onClick={download} className="p-1.5 rounded-md hover:bg-surface text-muted-foreground hover:text-foreground" title="Download HTML">
                   <Download className="size-4" />
                 </button>
@@ -334,10 +380,26 @@ function Studio() {
 
           <form onSubmit={submit} className="border-t border-border/40 p-3">
             <div className="relative">
+              {slashMenu && filteredSkills.length > 0 && (
+                <div role="listbox" aria-label="Skills" className="absolute bottom-full left-0 z-20 mb-2 max-h-72 w-full overflow-auto rounded-2xl border border-border bg-surface-elevated p-2 shadow-xl">
+                  <p className="px-2 pb-1 text-[10px] uppercase tracking-[0.16em] text-muted-foreground">Invoke a skill</p>
+                  {filteredSkills.map((skill, index) => <button key={skill.id} type="button" role="option" aria-selected={slashHighlight === index} onMouseDown={(e) => e.preventDefault()} onClick={() => chooseSkill(skill)} className={`block w-full rounded-xl px-3 py-2 text-left ${slashHighlight === index ? "bg-accent/50" : "hover:bg-muted"}`}>
+                    <span className="flex items-center justify-between gap-2 text-sm font-medium"><span>{skill.name}</span><code className="text-xs text-muted-foreground">/{skill.slug}</code></span>
+                    {skill.description && <span className="mt-0.5 block truncate text-xs text-muted-foreground">{skill.description}</span>}
+                  </button>)}
+                </div>
+              )}
               <textarea
+                ref={inputRef}
                 value={input}
-                onChange={(e) => setInput(e.target.value)}
-                onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); submit(e); } }}
+                onChange={(e) => updateInput(e.target.value, e.currentTarget.selectionStart)}
+                onKeyDown={(e) => {
+                  if (slashMenu && filteredSkills.length && e.key === "ArrowDown") { e.preventDefault(); setSlashHighlight((n) => (n + 1) % filteredSkills.length); return; }
+                  if (slashMenu && filteredSkills.length && e.key === "ArrowUp") { e.preventDefault(); setSlashHighlight((n) => (n - 1 + filteredSkills.length) % filteredSkills.length); return; }
+                  if (slashMenu && e.key === "Escape") { e.preventDefault(); setSlashMenu(false); return; }
+                  if (slashMenu && filteredSkills.length && e.key === "Enter") { e.preventDefault(); chooseSkill(filteredSkills[slashHighlight]); return; }
+                  if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); e.currentTarget.form?.requestSubmit(); }
+                }}
                 placeholder={html ? "Refine — change colors, add a section, rewrite copy…" : "Describe the site you want to build…"}
                 rows={3}
                 className="w-full resize-none bg-surface border border-border rounded-xl px-4 py-3 pr-12 text-sm focus:outline-none focus:border-ember/60 transition"
@@ -444,7 +506,7 @@ function Studio() {
               {panel === "share" && (
                 <SharePanel
                   shareUrl={shareUrl}
-                  isPublic={data?.project.is_public ?? true}
+                  isPublic={data?.project.is_public ?? false}
                   onTogglePublic={(v) => pubMut.mutate(v)}
                 />
               )}
@@ -550,8 +612,9 @@ function SkillsPanel({ all, active, onToggle, onCreate, onDelete }: {
   return (
     <div className="space-y-3">
       <p className="text-sm text-muted-foreground leading-relaxed">
-        Reusable instruction packs — stack any combination. Active skills are injected into every generation for this project.
+        Skills are applied only when you invoke them with a slash command, such as <code>/design-system</code>. Pin the skills you use often to move them to the top of the command picker.
       </p>
+      <Link to="/skills" className="block text-xs text-leaf hover:underline">Manage your skill library →</Link>
       <button onClick={() => setCreating(!creating)} className="w-full inline-flex items-center justify-center gap-2 text-xs py-2 rounded-lg border border-border hover:border-ember/60 transition">
         {creating ? <X className="size-3.5" /> : <Plus className="size-3.5" />} {creating ? "Cancel" : "New skill"}
       </button>
@@ -583,7 +646,7 @@ function SkillsPanel({ all, active, onToggle, onCreate, onDelete }: {
                   onClick={() => onToggle(s.id, !isActive)}
                   className={`shrink-0 text-[10px] uppercase tracking-wider px-2 py-1 rounded ${isActive ? "bg-accent text-accent-foreground" : "border border-border text-muted-foreground hover:text-foreground"}`}
                 >
-                  {isActive ? <span className="inline-flex items-center gap-1"><Check className="size-3" /> On</span> : "Off"}
+                  {isActive ? <span className="inline-flex items-center gap-1"><Check className="size-3" /> Pinned</span> : "Pin"}
                 </button>
               </div>
               {!s.is_global && (
@@ -730,11 +793,11 @@ function DeployPanel({ githubUrl, vercelUrl, defaultRepoName, onPushGithub, onDe
   deploying: boolean;
 }) {
   const [repoName, setRepoName] = useState(defaultRepoName);
-  const [isPrivate, setIsPrivate] = useState(false);
+  const [isPrivate, setIsPrivate] = useState(true);
   return (
     <div className="space-y-5">
       <p className="text-sm text-muted-foreground leading-relaxed">
-        Push your site straight to GitHub and deploy it live on Vercel — each generation is shipped as a real static site.
+        Connect a repository and production site once. New generations then push a commit to that repository and publish a fresh Vercel deployment automatically.
       </p>
 
       <div className="space-y-3 p-3 rounded-xl border border-border/60 bg-surface/40">
