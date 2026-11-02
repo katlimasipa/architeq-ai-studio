@@ -469,6 +469,16 @@ function Studio() {
               <div role="alert" className="rounded-xl border border-destructive/30 bg-surface p-3">
                 <p className="text-sm text-destructive">Your project is saved, but generation didn’t finish.</p>
                 <p className="mt-1 text-xs leading-relaxed text-muted-foreground">{gen.error instanceof Error ? gen.error.message : "Your prompt is ready below. Review it and try again."}</p>
+                {gen.error instanceof Error && gen.error.message.includes("GEMINI_API_KEY") && (
+                  <a
+                    href="https://aistudio.google.com/app/apikey"
+                    target="_blank"
+                    rel="noreferrer"
+                    className="mt-2 inline-block text-xs font-medium text-leaf hover:underline"
+                  >
+                    Get a Gemini API key
+                  </a>
+                )}
                 {gen.variables && (
                   <button
                     type="button"

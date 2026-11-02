@@ -1,6 +1,7 @@
 import { createServerFn } from "@tanstack/react-start";
 import { getRequest } from "@tanstack/react-start/server";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
+import { getEmptyGenerationMessage, getProviderErrorMessage } from "@/lib/ai-generation-errors";
 import { z } from "zod";
 
 function makeSlug() {
@@ -346,15 +347,14 @@ async function generateSiteWithProgress(
     createLovableAiGatewayProvider,
     createVercelAiGatewayProvider,
   } = await import("./ai-gateway.server");
-  const { streamText } = await import("ai");
+  const { generateText } = await import("ai");
   const model = lovableApiKey
     ? createLovableAiGatewayProvider(lovableApiKey)("google/gemini-3-flash-preview")
     : geminiApiKey
       ? createGeminiAiProvider(geminiApiKey)("gemini-2.5-flash")
       : createVercelAiGatewayProvider(vercelGatewayToken!)("google/gemini-2.5-flash");
 
-  const contextMessages: { role: "system" | "user" | "assistant"; content: string }[] = [
-    { role: "system", content: system },
+  const contextMessages: { role: "user" | "assistant"; content: string }[] = [
     ...messageHistory.map((m) => ({ role: m.role as "user" | "assistant", content: m.content })),
   ];
 
@@ -368,41 +368,29 @@ async function generateSiteWithProgress(
 
   report({ step: 2, title: "Generating your site", detail: "Waiting for the AI to start writing the pages." });
   let raw = "";
-  let lastProgressAt = 0;
+  let generationSeconds = 0;
+  const progressInterval = setInterval(() => {
+    generationSeconds += 10;
+    report({
+      step: 2,
+      title: "Generating your site",
+      detail: `The AI is still drafting your pages (${generationSeconds}s elapsed).`,
+    });
+  }, 10_000);
   try {
-    const result = streamText({ model, messages: contextMessages, maxOutputTokens: 32000 });
-    for await (const chunk of result.textStream) {
-      raw += chunk;
-      const now = Date.now();
-      if (now - lastProgressAt >= 900) {
-        report({
-          step: 2,
-          title: "Generating your site",
-          detail: `${raw.length.toLocaleString()} characters drafted so far.`,
-        });
-        lastProgressAt = now;
-      }
-    }
-    raw = raw.trim();
+    const result = await generateText({
+      model,
+      system,
+      messages: contextMessages,
+      maxOutputTokens: 32000,
+    });
+    raw = result.text.trim();
+    if (!raw) throw new Error(getEmptyGenerationMessage(result.finishReason, result.rawFinishReason));
   } catch (e) {
-    const err = e as { statusCode?: number; message?: string; responseBody?: string };
-    const details = `${err.message ?? ""} ${err.responseBody ?? ""}`;
-    if (err.statusCode === 429) throw new Error("Rate limit reached. Try again in a moment.");
     const usesVercelGateway = !lovableApiKey && !geminiApiKey;
-    if (
-      usesVercelGateway &&
-      (err.statusCode === 402 || err.statusCode === 403) &&
-      /valid credit card|payment card|billing|credits/i.test(details)
-    ) {
-      throw new Error(
-        "Vercel AI Gateway requires a payment card on file before it can process AI requests. Add one in Vercel AI settings, then retry.",
-      );
-    }
-    if (err.statusCode === 402) throw new Error("AI credits exhausted. Add credits in workspace settings.");
-    if (err.statusCode === 401 || err.statusCode === 403) {
-      throw new Error("The AI provider rejected the request. Check its API key, model access, or billing setup, then retry.");
-    }
-    throw new Error(err.message || "Generation failed");
+    throw new Error(getProviderErrorMessage(e, usesVercelGateway));
+  } finally {
+    clearInterval(progressInterval);
   }
 
   report({ step: 3, title: "Checking the generated pages", detail: "Validating HTML and matching page routes." });
