@@ -11,7 +11,7 @@ import { listSkills, createSkill, toggleProjectSkill, deleteSkill } from "@/lib/
 import { useEffect, useRef, useState } from "react";
 import {
   ArrowLeft, Send, Loader2, Sparkles, Monitor, Smartphone,
-  Code, Eye, Download, ExternalLink, Upload, Image as ImageIcon,
+  Code, Eye, Download, ExternalLink, Upload, Image as ImageIcon, Paperclip,
   Trash2, History, Share2, Check, Copy, Wand2, Plus, X, Zap,
   FileCode, Rocket, Github, Globe,
 } from "lucide-react";
@@ -25,6 +25,9 @@ export const Route = createFileRoute("/_authenticated/studio/$projectId")({
 
 type Panel = null | "assets" | "skills" | "versions" | "share" | "pages" | "deploy";
 type SkillCommandOption = { id: string; name: string; slug: string; description: string };
+type PendingAttachment = { id: string; file: File; kind: "reference" | "image"; dataUrl: string };
+type ChatAttachment = { name: string; kind: "reference" | "image"; dataUrl: string };
+const MAX_ATTACHMENTS = 6;
 
 function Studio() {
   const { user } = Route.useRouteContext();
@@ -57,6 +60,8 @@ function Studio() {
   const [generationProgress, setGenerationProgress] = useState<GenerateSiteProgress | null>(null);
   const [generationStartedAt, setGenerationStartedAt] = useState<number | null>(null);
   const [elapsedSeconds, setElapsedSeconds] = useState(0);
+  const [pending, setPending] = useState<PendingAttachment[]>([]);
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const [submittedPrompt, setSubmittedPrompt] = useState<{ content: string; baselineMessages: number } | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
@@ -73,8 +78,8 @@ function Studio() {
   });
 
   const gen = useMutation({
-    mutationFn: async (msg: string) => {
-      const stream = await generate({ data: { projectId, message: msg } });
+    mutationFn: async (payload: { message: string; text: string; attachments?: ChatAttachment[] }) => {
+      const stream = await generate({ data: { projectId, message: payload.message, attachments: payload.attachments } });
       const reader = stream.getReader();
       let result: GenerateSiteResult | null = null;
       try {
@@ -96,8 +101,8 @@ function Studio() {
       if (!result) throw new Error("Generation ended before the preview was saved. Try again.");
       return result;
     },
-    onMutate: (message) => {
-      setSubmittedPrompt({ content: message, baselineMessages: data?.messages.length ?? 0 });
+    onMutate: (payload) => {
+      setSubmittedPrompt({ content: payload.text, baselineMessages: data?.messages.length ?? 0 });
       setGenerationStartedAt(Date.now());
       setGenerationProgress({
         step: 1,
@@ -116,8 +121,8 @@ function Studio() {
       setGenerationStartedAt(null);
       toast.success(`Site updated — v${r.version}`);
     },
-    onError: (e, message) => {
-      setInput((current) => current || message);
+    onError: (e, payload) => {
+      setInput((current) => current || payload.text);
       setGenerationProgress(null);
       setGenerationStartedAt(null);
       toast.error(e instanceof Error ? e.message : "Generation failed");
@@ -130,7 +135,7 @@ function Studio() {
     if (!data || !prompt || data.messages.length > 0 || initialPromptStarted.current === projectId) return;
 
     initialPromptStarted.current = projectId;
-    generateMutate(prompt);
+    generateMutate({ message: prompt, text: prompt });
   }, [data, generateMutate, projectId]);
 
   const pubMut = useMutation({
@@ -239,13 +244,107 @@ function Studio() {
     return () => window.clearInterval(timer);
   }, [generationStartedAt]);
 
-  function submit(e: React.FormEvent) {
+  async function submit(e: React.FormEvent) {
     e.preventDefault();
-    const v = input.trim();
-    if (!v || gen.isPending) return;
+    if (gen.isPending) return;
+    const text = input.trim();
+    if (!text && pending.length === 0) return;
+    const files = pending;
     setInput("");
+    setPending([]);
     setSlashMenu(false);
-    gen.mutate(v);
+    const notes: string[] = [];
+    let cursor = 0;
+    try {
+      for (; cursor < files.length; cursor++) {
+        const p = files[cursor];
+        const buf = await p.file.arrayBuffer();
+        let bin = "";
+        const bytes = new Uint8Array(buf);
+        for (let i = 0; i < bytes.byteLength; i++) bin += String.fromCharCode(bytes[i]);
+        const row = await upload({
+          data: {
+            projectId,
+            kind: p.kind,
+            name: p.file.name,
+            contentType: p.file.type || "application/octet-stream",
+            dataBase64: btoa(bin),
+          },
+        });
+        notes.push(
+          p.kind === "reference"
+            ? `- DESIGN REFERENCE "${p.file.name}" — study this image as visual inspiration for layout, typography, spacing, colour and component style (visible in this message)`
+            : `- SITE IMAGE "${p.file.name}" — embed this exact URL in the site where appropriate: ${row.url}`,
+        );
+      }
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Upload failed");
+      setInput(text);
+      setPending((cur) => [...files.slice(cursor), ...cur]);
+      return;
+    }
+    const label = text || "Use the attached files in the site.";
+    const message = notes.length ? `${label}\n\nATTACHED FILES:\n${notes.join("\n")}` : label;
+    gen.mutate({
+      message,
+      text: label,
+      attachments: files.map((p) => ({ name: p.file.name, kind: p.kind, dataUrl: p.dataUrl })),
+    });
+  }
+
+  async function addFiles(list: FileList | File[] | null) {
+    if (!list) return;
+    const incoming = Array.from(list).filter((f) => f.type.startsWith("image/"));
+    if (incoming.length === 0) { toast.error("Only image files can be attached"); return; }
+    if (incoming.length + pending.length > MAX_ATTACHMENTS) toast.error(`Max ${MAX_ATTACHMENTS} attachments per message`);
+    const room = Math.max(0, MAX_ATTACHMENTS - pending.length);
+    for (const file of incoming.slice(0, room)) {
+      if (file.size > 8 * 1024 * 1024) { toast.error(`${file.name} is over 8MB`); continue; }
+      const dataUrl = await buildDataUrl(file);
+      if (!dataUrl) { toast.error(`Couldn't process ${file.name} — try a smaller image`); continue; }
+      setPending((cur) => (cur.length >= MAX_ATTACHMENTS ? cur : [...cur, { id: crypto.randomUUID(), file, kind: "reference", dataUrl }]));
+    }
+  }
+
+  async function buildDataUrl(file: File): Promise<string | null> {
+    const LIMIT = 3_800_000;
+    const readAsDataUrl = () => new Promise<string>((resolve, reject) => {
+      const r = new FileReader();
+      r.onload = () => resolve(String(r.result));
+      r.onerror = () => reject(new Error("read failed"));
+      r.readAsDataURL(file);
+    });
+    if (file.size <= 512 * 1024) {
+      const url = await readAsDataUrl();
+      return url.length <= LIMIT ? url : null;
+    }
+    try {
+      const bitmap = await createImageBitmap(file);
+      const scale = Math.min(1, 1280 / Math.max(bitmap.width, bitmap.height));
+      const canvas = document.createElement("canvas");
+      canvas.width = Math.max(1, Math.round(bitmap.width * scale));
+      canvas.height = Math.max(1, Math.round(bitmap.height * scale));
+      const ctx = canvas.getContext("2d");
+      if (!ctx) { bitmap.close(); return null; }
+      if (file.type !== "image/jpeg") {
+        ctx.drawImage(bitmap, 0, 0, canvas.width, canvas.height);
+      } else {
+        ctx.fillStyle = "#ffffff";
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+        ctx.drawImage(bitmap, 0, 0, canvas.width, canvas.height);
+      }
+      bitmap.close();
+      let out = canvas.toDataURL(file.type === "image/png" ? "image/png" : "image/jpeg", 0.85);
+      if (out.length > LIMIT) out = canvas.toDataURL("image/jpeg", 0.8);
+      return out.length <= LIMIT ? out : null;
+    } catch {
+      try {
+        const url = await readAsDataUrl();
+        return url.length <= LIMIT ? url : null;
+      } catch {
+        return null;
+      }
+    }
   }
 
   function updateInput(value: string, caret: number) {
@@ -386,7 +485,7 @@ function Studio() {
                 </div>
                 <p className="text-display text-2xl mb-2">Start composing.</p>
                 <p className="text-sm text-muted-foreground mx-auto mb-5">
-                  Describe the site. Upload logos & references in the Assets panel — they persist across every edit.
+                  Describe the site. Attach images right in the chat — clip, drag & drop, or paste. A "reference" guides the style; a "site image" is placed on the site. Everything persists across edits.
                 </p>
                 <div className="space-y-2 text-left">
                   {[
@@ -492,7 +591,35 @@ function Studio() {
             )}
           </div>
 
-          <form onSubmit={submit} className="border-t border-border/40 p-3">
+          <form
+            onSubmit={submit}
+            onDragOver={(e) => e.preventDefault()}
+            onDrop={(e) => { e.preventDefault(); addFiles(e.dataTransfer.files); }}
+            className="border-t border-border/40 p-3"
+          >
+            {pending.length > 0 && (
+              <div className="mb-2 flex flex-wrap gap-2">
+                {pending.map((p) => (
+                  <div key={p.id} className="flex items-center gap-2 rounded-lg border border-border bg-surface/60 p-1 pr-2">
+                    <img src={p.dataUrl} alt={p.file.name} className="size-9 rounded object-cover" />
+                    <div className="min-w-0">
+                      <p className="max-w-[120px] truncate text-[11px]">{p.file.name}</p>
+                      <button
+                        type="button"
+                        onClick={() => setPending((cur) => cur.map((c) => (c.id === p.id ? { ...c, kind: c.kind === "reference" ? "image" : "reference" } : c)))}
+                        className="text-[9px] uppercase tracking-wider text-leaf hover:underline"
+                        title="Toggle between design reference (inspiration) and site image (placed on the site)"
+                      >
+                        {p.kind === "reference" ? "reference" : "site image"}
+                      </button>
+                    </div>
+                    <button type="button" onClick={() => setPending((cur) => cur.filter((c) => c.id !== p.id))} className="p-0.5 text-muted-foreground hover:text-destructive">
+                      <X className="size-3" />
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
             <div className="relative">
               {slashMenu && filteredSkills.length > 0 && (
                 <div role="listbox" aria-label="Skills" className="absolute bottom-full left-0 z-20 mb-2 max-h-72 w-full overflow-auto rounded-2xl border border-border bg-surface-elevated p-2 shadow-xl">
@@ -514,12 +641,32 @@ function Studio() {
                   if (slashMenu && filteredSkills.length && e.key === "Enter") { e.preventDefault(); chooseSkill(filteredSkills[slashHighlight]); return; }
                   if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); e.currentTarget.form?.requestSubmit(); }
                 }}
-                placeholder={html ? "Refine — change colors, add a section, rewrite copy…" : "Describe the site you want to build…"}
+                onPaste={(e) => {
+                  const fs = e.clipboardData?.files;
+                  if (fs && fs.length > 0) { e.preventDefault(); addFiles(fs); }
+                }}
+                placeholder={html ? "Refine — change colors, add a section, rewrite copy… (drag or paste images to attach)" : "Describe the site you want to build… (drag or paste images to attach)"}
                 rows={3}
-                className="w-full resize-none bg-surface border border-border rounded-xl px-4 py-3 pr-12 text-sm focus:outline-none focus:border-ember/60 transition"
+                className="w-full resize-none bg-surface border border-border rounded-xl px-4 py-3 pr-12 pl-11 text-sm focus:outline-none focus:border-ember/60 transition"
                 disabled={gen.isPending}
               />
-              <button type="submit" disabled={!input.trim() || gen.isPending} className="absolute bottom-3 right-3 size-8 rounded-lg bg-primary text-primary-foreground inline-flex items-center justify-center disabled:opacity-30 hover:bg-primary/90 transition">
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept="image/*"
+                multiple
+                className="hidden"
+                onChange={(e) => { addFiles(e.target.files); e.target.value = ""; }}
+              />
+              <button
+                type="button"
+                onClick={() => fileInputRef.current?.click()}
+                title="Attach images — design references for inspiration, or pictures to place on the site"
+                className="absolute bottom-3 left-3 size-8 rounded-lg inline-flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-surface-elevated transition"
+              >
+                <Paperclip className="size-3.5" />
+              </button>
+              <button type="submit" disabled={(!input.trim() && pending.length === 0) || gen.isPending} className="absolute bottom-3 right-3 size-8 rounded-lg bg-primary text-primary-foreground inline-flex items-center justify-center disabled:opacity-30 hover:bg-primary/90 transition">
                 <Send className="size-3.5" />
               </button>
             </div>

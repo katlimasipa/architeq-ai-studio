@@ -273,7 +273,7 @@ export type GenerateSiteEvent =
   | { type: "error"; message: string };
 
 async function generateSiteWithProgress(
-  data: { projectId: string; message: string },
+  data: { projectId: string; message: string; attachments?: { name: string; kind: string; dataUrl: string }[] },
   context: { supabase: any; userId: string },
   requestOidcToken: string | null | undefined,
   report: (progress: GenerateSiteProgress) => void,
@@ -359,7 +359,7 @@ async function generateSiteWithProgress(
       ? geminiModels.map(({ id, label }) => ({ label, model: createGeminiAiProvider(geminiApiKey)(id) }))
       : geminiModels.map(({ id, label }) => ({ label, model: createVercelAiGatewayProvider(vercelGatewayToken!)(`google/${id}`) }));
 
-  const contextMessages: { role: "user" | "assistant"; content: string }[] = [
+  const contextMessages: { role: "user" | "assistant"; content: any }[] = [
     ...messageHistory.map((m) => ({ role: m.role as "user" | "assistant", content: m.content })),
   ];
 
@@ -369,7 +369,17 @@ async function generateSiteWithProgress(
   } else if (project.html) {
     contextMessages.push({ role: "assistant", content: `Current site HTML:\n\n${project.html}` });
   }
-  contextMessages.push({ role: "user", content: data.message });
+
+  const attachments = data.attachments ?? [];
+  contextMessages.push({
+    role: "user",
+    content: attachments.length
+      ? [
+          { type: "text" as const, text: data.message },
+          ...attachments.map((a) => ({ type: "image" as const, image: a.dataUrl })),
+        ]
+      : data.message,
+  });
 
   report({ step: 2, title: "Generating your site", detail: "Waiting for the AI to start writing the pages." });
   let raw = "";
@@ -452,7 +462,12 @@ export const generateSite = createServerFn({ method: "POST" })
   .inputValidator((d: unknown) =>
     z.object({
       projectId: z.string().uuid(),
-      message: z.string().min(1).max(8000),
+      message: z.string().min(1).max(16000),
+      attachments: z.array(z.object({
+        name: z.string().min(1).max(200),
+        kind: z.enum(["reference", "image"]),
+        dataUrl: z.string().startsWith("data:image/"),
+      })).max(6).optional(),
     }).parse(d),
   )
   .handler(async ({ data, context }) => {
