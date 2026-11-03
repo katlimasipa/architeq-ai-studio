@@ -273,7 +273,7 @@ export type GenerateSiteEvent =
   | { type: "error"; message: string };
 
 async function generateSiteWithProgress(
-  data: { projectId: string; message: string },
+  data: { projectId: string; message: string; attachments?: { name: string; kind: string; dataUrl: string }[] },
   context: { supabase: any; userId: string },
   requestOidcToken: string | null | undefined,
   report: (progress: GenerateSiteProgress) => void,

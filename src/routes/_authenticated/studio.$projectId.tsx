@@ -135,7 +135,7 @@ function Studio() {
     if (!data || !prompt || data.messages.length > 0 || initialPromptStarted.current === projectId) return;
 
     initialPromptStarted.current = projectId;
-    generateMutate(prompt);
+    generateMutate({ message: prompt, text: prompt });
   }, [data, generateMutate, projectId]);
 
   const pubMut = useMutation({
