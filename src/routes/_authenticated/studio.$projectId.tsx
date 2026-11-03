@@ -78,8 +78,8 @@ function Studio() {
   });
 
   const gen = useMutation({
-    mutationFn: async (msg: string) => {
-      const stream = await generate({ data: { projectId, message: msg } });
+    mutationFn: async (payload: { message: string; text: string; attachments?: ChatAttachment[] }) => {
+      const stream = await generate({ data: { projectId, message: payload.message, attachments: payload.attachments } });
       const reader = stream.getReader();
       let result: GenerateSiteResult | null = null;
       try {
