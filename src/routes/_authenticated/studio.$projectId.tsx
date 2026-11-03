@@ -101,8 +101,8 @@ function Studio() {
       if (!result) throw new Error("Generation ended before the preview was saved. Try again.");
       return result;
     },
-    onMutate: (message) => {
-      setSubmittedPrompt({ content: message, baselineMessages: data?.messages.length ?? 0 });
+    onMutate: (payload) => {
+      setSubmittedPrompt({ content: payload.text, baselineMessages: data?.messages.length ?? 0 });
       setGenerationStartedAt(Date.now());
       setGenerationProgress({
         step: 1,
@@ -121,8 +121,8 @@ function Studio() {
       setGenerationStartedAt(null);
       toast.success(`Site updated — v${r.version}`);
     },
-    onError: (e, message) => {
-      setInput((current) => current || message);
+    onError: (e, payload) => {
+      setInput((current) => current || payload.text);
       setGenerationProgress(null);
       setGenerationStartedAt(null);
       toast.error(e instanceof Error ? e.message : "Generation failed");
