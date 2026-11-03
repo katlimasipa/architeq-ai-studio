@@ -4,11 +4,11 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { listProjects, createProject, deleteProject } from "@/lib/projects.functions";
 import { supabase } from "@/integrations/supabase/client";
 import { useEffect, useRef, useState } from "react";
-import { Plus, Sparkles, Trash2, Loader2, ArrowUpRight } from "lucide-react";
+import { Plus, Trash2, Loader2, ArrowUpRight } from "lucide-react";
 import { toast } from "sonner";
 import { formatDistanceToNow } from "date-fns";
 import { PENDING_PROJECT_PROMPT_KEY, suggestProjectName } from "@/lib/project-name";
-import { WorkspaceSidebar } from "@/components/workspace-sidebar";
+import { WorkspaceSidebar, WorkspaceTabs } from "@/components/workspace-sidebar";
 
 export const Route = createFileRoute("/_authenticated/dashboard")({
   head: () => ({ meta: [{ title: "Dashboard — Architeq" }] }),
@@ -83,7 +83,7 @@ function Dashboard() {
 
         {/* Main panel */}
         <div className="flex-1 flex flex-col min-w-0">
-          <div className="px-6 md:px-10 pt-10 pb-2 flex items-end justify-between flex-wrap gap-6">
+          <div className="px-6 md:px-10 pt-8 md:pt-10 pb-2 flex items-end justify-between flex-wrap gap-6">
             <div>
               <span className="inline-block text-[11px] uppercase tracking-[0.2em] text-muted-foreground mb-3">
                 Your studio
@@ -98,6 +98,10 @@ function Dashboard() {
                 <Plus className="size-4" /> New project
               </button>
             )}
+          </div>
+
+          <div className="px-6 md:px-10 pt-5">
+            <WorkspaceTabs active="projects" />
           </div>
 
           <main className="flex-1 px-6 md:px-10 py-8">
@@ -145,7 +149,7 @@ function Dashboard() {
                     disabled={!name.trim() || createMut.isPending}
                     className="inline-flex items-center gap-2 rounded-full bg-primary text-primary-foreground px-5 py-3 text-sm font-medium disabled:opacity-50"
                   >
-                    {createMut.isPending ? <Loader2 className="size-4 animate-spin" /> : <Sparkles className="size-4" />}
+                    {createMut.isPending ? <Loader2 className="size-4 animate-spin" /> : <Plus className="size-4" />}
                     Create
                   </button>
                   <button
@@ -182,7 +186,7 @@ function Dashboard() {
                   onClick={openCreateForm}
                   className="inline-flex items-center gap-2 rounded-full bg-primary text-primary-foreground px-5 py-3 text-sm font-medium"
                 >
-                  <Sparkles className="size-4" /> Start building
+                  <Plus className="size-4" /> Start building
                 </button>
               </div>
             ) : (

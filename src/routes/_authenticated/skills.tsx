@@ -2,10 +2,10 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
-import { Blocks, Loader2, Plus, Trash2, WandSparkles } from "lucide-react";
+import { Blocks, Loader2, Plus, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { listSkills, createSkill, deleteSkill } from "@/lib/skills.functions";
-import { WorkspaceSidebar } from "@/components/workspace-sidebar";
+import { WorkspaceSidebar, WorkspaceTabs } from "@/components/workspace-sidebar";
 
 export const Route = createFileRoute("/_authenticated/skills")({
   head: () => ({ meta: [{ title: "Skills — Architeq" }] }),
@@ -81,6 +81,9 @@ function SkillsLibrary() {
             <code className="rounded bg-muted px-1.5 py-0.5">/</code> to choose a skill; it runs
             only when you invoke its command.
           </p>
+          <div className="mb-8">
+            <WorkspaceTabs active="skills" />
+          </div>
           <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_minmax(320px,0.8fr)]">
             <section className="rounded-3xl border border-border bg-surface-elevated p-5 md:p-6">
               <div className="mb-4 flex items-center gap-2">
@@ -139,7 +142,7 @@ function SkillsLibrary() {
                   {createMut.isPending ? (
                     <Loader2 className="size-4 animate-spin" />
                   ) : (
-                    <WandSparkles className="size-4" />
+                    <Plus className="size-4" />
                   )}{" "}
                   Save skill
                 </button>

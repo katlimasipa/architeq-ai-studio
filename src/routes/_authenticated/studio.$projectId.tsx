@@ -8,9 +8,10 @@ import type { GenerateSiteProgress, GenerateSiteResult } from "@/lib/projects.fu
 import { pushToGithub, deployToVercel } from "@/lib/deployments.functions";
 import { uploadAsset, deleteAsset } from "@/lib/assets.functions";
 import { listSkills, createSkill, toggleProjectSkill, deleteSkill } from "@/lib/skills.functions";
+import type { Database } from "@/integrations/supabase/types";
 import { useEffect, useRef, useState } from "react";
 import {
-  ArrowLeft, Send, Loader2, Sparkles, Monitor, Smartphone,
+  ArrowLeft, Send, Loader2, LayoutTemplate, Monitor, Smartphone,
   Code, Eye, Download, ExternalLink, Upload, Image as ImageIcon, Paperclip,
   Trash2, History, Share2, Check, Copy, Wand2, Plus, X, Zap,
   FileCode, Rocket, Github, Globe,
@@ -28,6 +29,9 @@ type SkillCommandOption = { id: string; name: string; slug: string; description:
 type PendingAttachment = { id: string; file: File; kind: "reference" | "image"; dataUrl: string };
 type ChatAttachment = { name: string; kind: "reference" | "image"; dataUrl: string };
 const MAX_ATTACHMENTS = 6;
+type AssetPreview = Pick<Database["public"]["Tables"]["project_assets"]["Row"], "id" | "url" | "name" | "kind">;
+type SkillPreview = Pick<Database["public"]["Tables"]["skills"]["Row"], "id" | "name" | "slug" | "description" | "is_global">;
+type VersionPreview = Pick<Database["public"]["Tables"]["project_versions"]["Row"], "id" | "version" | "prompt" | "created_at">;
 
 function Studio() {
   const { user } = Route.useRouteContext();
@@ -406,7 +410,7 @@ function Studio() {
   const pages = data?.pages ?? [];
   const slug = data?.project.slug ?? "";
   const isPublic = data?.project.is_public ?? false;
-  const project = data?.project as any;
+  const project = data?.project;
   const shareUrl = typeof window !== "undefined" ? `${window.location.origin}/p/${slug}` : `/p/${slug}`;
   const previewSrc = isPublic && slug ? `/p/${slug}${previewPath === "/" ? "" : previewPath}` : null;
   const pinnedSkillIds = new Set(activeSkills.map((skill: { id: string }) => skill.id));
@@ -418,10 +422,10 @@ function Studio() {
   const generationSteps = ["Load project context", "Generate site", "Check pages", "Save preview"];
 
   return (
-    <div className="h-screen bg-background p-3">
-      <div className="app-frame h-full flex flex-col overflow-hidden">
+    <div className="min-h-screen bg-background p-2 md:p-4">
+      <div className="app-frame flex h-[calc(100vh-16px)] min-h-[600px] flex-col overflow-hidden md:h-[calc(100vh-32px)]">
       <header className="border-b border-border bg-surface/90 shrink-0">
-        <div className="px-4 h-14 flex items-center justify-between gap-4">
+        <div className="px-3 md:px-5 h-16 flex items-center justify-between gap-3">
           <div className="flex items-center gap-3 min-w-0">
             <button
               onClick={() => router.navigate({ to: "/dashboard" })}
@@ -481,7 +485,7 @@ function Studio() {
             {messages.length === 0 && !gen.isPending && (
               <div className="text-center py-8">
                 <div className="size-12 rounded-2xl bg-accent/20 border border-accent/40 mx-auto mb-4 flex items-center justify-center">
-                  <Sparkles className="size-5 text-leaf" />
+                  <LayoutTemplate className="size-5 text-leaf" />
                 </div>
                 <p className="text-display text-2xl mb-2">Start composing.</p>
                 <p className="text-sm text-muted-foreground mx-auto mb-5">
@@ -718,7 +722,7 @@ function Studio() {
                   )
                 ) : (
                   <div className="m-auto text-center text-muted-foreground">
-                    <Sparkles className="size-6 mx-auto mb-3 text-leaf" />
+                    <LayoutTemplate className="size-6 mx-auto mb-3 text-leaf" />
                     <p className="text-display text-2xl mb-1">Your site appears here.</p>
                     <p className="text-sm">Send a prompt to begin.</p>
                   </div>
@@ -858,7 +862,7 @@ function PanelBtn({ icon, label, active, onClick, badge }: { icon: React.ReactNo
 }
 
 function AssetsPanel({ assets, onUpload, onDelete, uploading }: {
-  assets: any[]; onUpload: (f: File, kind: "logo" | "reference" | "image") => void; onDelete: (id: string) => void; uploading: boolean;
+  assets: AssetPreview[]; onUpload: (f: File, kind: "logo" | "reference" | "image") => void; onDelete: (id: string) => void; uploading: boolean;
 }) {
   const [kind, setKind] = useState<"logo" | "reference" | "image">("logo");
   return (
@@ -900,7 +904,7 @@ function AssetsPanel({ assets, onUpload, onDelete, uploading }: {
 }
 
 function SkillsPanel({ all, active, onToggle, onCreate, onDelete }: {
-  all: any[]; active: any[]; onToggle: (id: string, active: boolean) => void;
+  all: SkillPreview[]; active: SkillPreview[]; onToggle: (id: string, active: boolean) => void;
   onCreate: (d: { name: string; description: string; instructions: string }) => void;
   onDelete: (id: string) => void;
 }) {
@@ -959,7 +963,7 @@ function SkillsPanel({ all, active, onToggle, onCreate, onDelete }: {
   );
 }
 
-function VersionsPanel({ versions, onRestore, restoring }: { versions: any[]; onRestore: (id: string) => void; restoring: boolean }) {
+function VersionsPanel({ versions, onRestore, restoring }: { versions: VersionPreview[]; onRestore: (id: string) => void; restoring: boolean }) {
   return (
     <div className="space-y-3">
       <p className="text-sm text-muted-foreground leading-relaxed">

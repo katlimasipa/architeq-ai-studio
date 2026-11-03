@@ -5,14 +5,14 @@ import {
   Cable,
   Check,
   CircleAlert,
+  Cpu,
   Database,
   Github,
   Globe,
   Loader2,
-  Sparkles,
 } from "lucide-react";
 import { getIntegrationStatus } from "@/lib/integrations.functions";
-import { WorkspaceSidebar } from "@/components/workspace-sidebar";
+import { WorkspaceSidebar, WorkspaceTabs } from "@/components/workspace-sidebar";
 
 export const Route = createFileRoute("/_authenticated/integrations")({
   head: () => ({ meta: [{ title: "Connections — Architeq" }] }),
@@ -33,7 +33,7 @@ function Integrations() {
         ? `Build and revise sites using ${data.aiProvider}.`
         : "Build and revise sites with Google Gemini, Vercel AI Gateway, or Lovable.",
       ready: data?.ai,
-      icon: Sparkles,
+      icon: Cpu,
       variable: "GEMINI_API_KEY, AI_GATEWAY_API_KEY, or LOVABLE_API_KEY",
       setup: (
         <>
@@ -88,6 +88,9 @@ function Integrations() {
             project has a repository or live deployment, future generations can sync to it
             automatically.
           </p>
+          <div className="mb-8">
+            <WorkspaceTabs active="integrations" />
+          </div>
           {isError && (
             <p
               role="alert"

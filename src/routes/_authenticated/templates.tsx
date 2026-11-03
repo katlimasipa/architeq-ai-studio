@@ -1,10 +1,10 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { ArrowRight, Building2, LayoutDashboard, Loader2, Sparkles, Store } from "lucide-react";
+import { ArrowRight, Building2, LayoutDashboard, Loader2, Palette, Store } from "lucide-react";
 import { toast } from "sonner";
 import { createProject } from "@/lib/projects.functions";
-import { WorkspaceSidebar } from "@/components/workspace-sidebar";
+import { WorkspaceSidebar, WorkspaceTabs } from "@/components/workspace-sidebar";
 
 export const Route = createFileRoute("/_authenticated/templates")({
   head: () => ({ meta: [{ title: "Templates — Architeq" }] }),
@@ -16,7 +16,7 @@ const templates = [
     name: "SaaS launch",
     type: "Product",
     icon: LayoutDashboard,
-    color: "bg-accent/40",
+    color: "bg-muted",
     prompt:
       "Build a polished SaaS product landing page with a strong hero, clear product benefits, feature cards, a pricing section, testimonials with realistic placeholder names, and a confident call to action. Make the visual identity distinctive, responsive, and ready for a real product brand.",
   },
@@ -24,15 +24,15 @@ const templates = [
     name: "Local business",
     type: "Business",
     icon: Store,
-    color: "bg-emerald-100",
+    color: "bg-surface",
     prompt:
       "Create a modern website for a local service business. Include a clear value proposition, services, trust signals, opening hours, location, and an easy contact or booking call to action. Use realistic editable sample business details and a warm, professional, mobile-first design.",
   },
   {
     name: "Creative portfolio",
     type: "Portfolio",
-    icon: Sparkles,
-    color: "bg-lime-100",
+    icon: Palette,
+    color: "bg-accent/65",
     prompt:
       "Design an art-directed portfolio for a creative professional. Include a distinctive introduction, selected project cards, short process/about section, and contact call to action. Use elegant typography, a restrained color palette, generous whitespace, and responsive project imagery treatments.",
   },
@@ -40,7 +40,7 @@ const templates = [
     name: "Studio / agency",
     type: "Services",
     icon: Building2,
-    color: "bg-stone-200",
+    color: "bg-muted/80",
     prompt:
       "Create an elegant website for a design studio or consultancy. Include a positioning statement, capabilities, selected work, a concise studio story, and an inquiry call to action. Give it a cohesive editorial design system, refined typography, subtle motion, and responsive layouts.",
   },
@@ -73,6 +73,9 @@ function Templates() {
             Choose a starting brief. Each selection creates a private project in your account and
             opens it in the studio.
           </p>
+          <div className="mb-8">
+            <WorkspaceTabs active="templates" />
+          </div>
           <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
             {templates.map((item) => {
               const Icon = item.icon;

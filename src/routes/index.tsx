@@ -1,9 +1,8 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
 import { useState } from "react";
-import heroImg from "@/assets/hero.jpg";
 import orbImg from "@/assets/orb.jpg";
-import { ArrowUpRight, Sparkles, Command, Layers, Cpu, Rocket, GitBranch, Globe, Shield, Wand2, Loader2 } from "lucide-react";
+import { ArrowUpRight, Command, Layers, Cpu, Rocket, GitBranch, Globe, Shield, Wand2, Loader2, Plus, Palette, Blocks } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { createProject } from "@/lib/projects.functions";
@@ -57,9 +56,9 @@ function Nav() {
           <a href="#pricing" className="hover:text-foreground transition">Pricing</a>
         </nav>
         <div className="flex items-center gap-3">
-          <a href="/auth" className="hidden sm:inline text-sm text-muted-foreground hover:text-foreground">Sign in</a>
-          <a href="/auth" className="group inline-flex items-center gap-1.5 rounded-full bg-primary text-primary-foreground px-4 py-2 text-sm font-medium hover:bg-primary/90 transition">
-            Open Studio
+          <a href="/auth" className="inline text-sm text-muted-foreground hover:text-foreground">Sign in</a>
+          <a href="/auth" className="group inline-flex items-center gap-1.5 rounded-full bg-primary text-primary-foreground px-3.5 py-2.5 text-sm font-medium hover:bg-primary/90 transition sm:px-4">
+            <span className="hidden sm:inline">Open Studio</span><span className="sm:hidden">Studio</span>
             <ArrowUpRight className="size-3.5 group-hover:translate-x-0.5 group-hover:-translate-y-0.5 transition" />
           </a>
         </div>
@@ -73,26 +72,25 @@ function Hero() {
     <section className="relative pt-32 pb-24 px-6 md:px-12">
       <div className="mx-auto max-w-6xl">
         <div className="flex items-center gap-2 mb-8">
-          <span className="inline-flex items-center gap-2 rounded-full bg-accent px-3.5 py-1.5 text-xs font-medium text-accent-foreground">
-            <span className="size-1.5 rounded-full bg-accent-foreground animate-pulse" />
-            v0.9 — Multi-agent orchestration is live
+            <span className="inline-flex items-center gap-2 rounded-full bg-accent px-3.5 py-1.5 text-xs font-medium text-accent-foreground">
+            <span className="size-1.5 rounded-full bg-accent-foreground" />
+            A focused studio for building the web
           </span>
         </div>
 
         <h1 className="text-display text-[clamp(2.75rem,7vw,6.5rem)] max-w-5xl text-foreground">
-          The operating system <br />
-          for <span className="text-muted-foreground">building</span> the web.
+          Build your idea <br />
+          into something <span className="text-muted-foreground">real.</span>
         </h1>
 
         <div className="mt-10 grid md:grid-cols-12 gap-10 items-end">
           <p className="md:col-span-5 text-lg text-muted-foreground leading-relaxed">
-            Architeq is an autonomous studio that generates, refines, and deploys
-            agency-grade websites and web applications. Prompt once. Iterate in chat.
-            Ship to production.
+            Plan, create, and refine a website in one workspace. Keep your projects,
+            design skills, and publishing tools together from the first prompt to launch.
           </p>
           <div className="md:col-span-4 md:col-start-9 flex flex-wrap gap-3">
             <a href="#prompt" className="inline-flex items-center gap-2 rounded-full bg-primary text-primary-foreground px-5 py-3 text-sm font-medium hover:bg-primary/90 transition">
-              <Sparkles className="size-4" />
+              <ArrowUpRight className="size-4" />
               Start building
             </a>
             <a href="#workflow" className="inline-flex items-center gap-2 rounded-full bg-surface-elevated border border-border px-5 py-3 text-sm hover:border-foreground/30 transition">
@@ -101,28 +99,82 @@ function Hero() {
           </div>
         </div>
 
-        <div className="mt-16 relative rounded-[28px] overflow-hidden border border-border bg-surface-elevated">
-          <img
-            src={heroImg}
-            alt="Architeq composing a website in real time"
-            width={1600}
-            height={1200}
-            className="w-full h-auto"
-          />
-          <div className="absolute inset-x-0 bottom-0 h-40 bg-gradient-to-t from-foreground/80 to-transparent" />
-          <div className="absolute bottom-6 left-6 right-6 flex items-end justify-between gap-4">
-            <div className="font-mono text-xs text-primary-foreground/85">
-              <div>~ architeq build "studio landing, sage surfaces, chartreuse accents"</div>
-              <div className="text-primary-foreground/60 mt-1">› orchestrating 7 agents · 24 components generated · 98 lighthouse</div>
+        <WorkspacePreview />
+      </div>
+    </section>
+  );
+}
+
+function WorkspacePreview() {
+  const tabs = ["Projects", "Templates", "Skills", "Connections"];
+  return (
+    <div className="mt-14 rounded-[28px] border border-border bg-muted p-2.5 md:p-4" aria-label="Preview of the Architeq workspace">
+      <div className="grid min-h-[420px] overflow-hidden rounded-[22px] bg-surface sm:grid-cols-[4.5rem_minmax(0,1fr)]">
+        <aside aria-hidden="true" className="rail hidden flex-col items-center gap-4 py-5 sm:flex">
+          <span className="flex size-10 items-center justify-center rounded-2xl bg-surface-elevated">
+            <img src="/favicon.png" alt="" className="size-9 rounded-xl object-cover" />
+          </span>
+          <span className="mt-3 flex size-9 items-center justify-center rounded-2xl bg-white/15 text-white"><Layers className="size-4" /></span>
+          <span className="flex size-9 items-center justify-center rounded-2xl text-white/60"><Palette className="size-4" /></span>
+          <span className="flex size-9 items-center justify-center rounded-2xl text-white/60"><Blocks className="size-4" /></span>
+          <span className="mt-auto size-8 rounded-full border border-white/20 bg-white/10" />
+        </aside>
+
+        <div className="min-w-0 p-4 md:p-7">
+          <div className="flex flex-wrap items-end justify-between gap-4">
+            <div>
+              <p className="mb-2 text-[10px] uppercase tracking-[0.2em] text-muted-foreground">Your studio</p>
+              <h2 className="text-display text-3xl md:text-4xl">Everything in its place.</h2>
             </div>
-            <div className="hidden md:flex items-center gap-2 text-xs font-mono text-primary-foreground/70">
-              <kbd className="rounded border border-white/20 bg-white/10 px-1.5 py-0.5">⌘</kbd>
-              <kbd className="rounded border border-white/20 bg-white/10 px-1.5 py-0.5">K</kbd>
+            <a href="/auth" className="inline-flex items-center gap-2 rounded-full bg-primary px-4 py-2.5 text-xs font-medium text-primary-foreground transition hover:bg-primary/90">
+              <Plus className="size-3.5" /> Create a project
+            </a>
+          </div>
+
+          <div className="my-5 flex flex-wrap gap-2" aria-hidden="true">
+            {tabs.map((label, index) => (
+              <span key={label} className={`rounded-full border px-3.5 py-2 text-xs ${index === 0 ? "border-primary bg-primary text-primary-foreground" : "border-border bg-surface-elevated text-muted-foreground"}`}>
+                {label}
+              </span>
+            ))}
+          </div>
+
+          <div className="grid gap-3 lg:grid-cols-[1.2fr_0.8fr]">
+            <article className="rounded-3xl border border-border bg-surface-elevated p-5 md:p-6">
+              <div className="mb-5 flex items-center justify-between gap-4">
+                <div>
+                  <p className="mb-1 text-xs text-muted-foreground">Start with a clear brief</p>
+                  <h3 className="text-display text-2xl">A new idea, ready to shape.</h3>
+                </div>
+                <span className="flex size-10 shrink-0 items-center justify-center rounded-2xl bg-muted"><Layers className="size-4" /></span>
+              </div>
+              <div className="rounded-2xl border border-border bg-surface p-4">
+                <p className="max-w-lg text-sm leading-relaxed text-muted-foreground">
+                  Describe the site you want to make. Your preview, saved skills, and project history stay together as you refine it.
+                </p>
+                <div className="mt-5 flex flex-wrap gap-2 text-[10px] uppercase tracking-[0.12em] text-muted-foreground">
+                  <span className="rounded-full bg-muted px-3 py-1.5">Private projects</span>
+                  <span className="rounded-full bg-accent/70 px-3 py-1.5 text-foreground">Live preview</span>
+                </div>
+              </div>
+            </article>
+
+            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-1">
+              <article className="rounded-3xl bg-accent/70 p-5">
+                <p className="mb-3 text-xs text-foreground/65">Personal toolkit</p>
+                <h3 className="text-display text-2xl">Design skills that work your way.</h3>
+                <p className="mt-3 text-xs leading-relaxed text-foreground/70">Save your standards, then call them with a slash command.</p>
+              </article>
+              <article className="rounded-3xl bg-primary p-5 text-primary-foreground">
+                <p className="mb-3 text-xs text-primary-foreground/60">When you’re ready</p>
+                <h3 className="text-display text-2xl">Share it or ship it.</h3>
+                <p className="mt-3 text-xs leading-relaxed text-primary-foreground/70">Connect GitHub and Vercel from your project workspace.</p>
+              </article>
             </div>
           </div>
         </div>
       </div>
-    </section>
+    </div>
   );
 }
 
@@ -247,19 +299,19 @@ function Prompt() {
           Describe the outcome — Architeq plans the architecture, generates the design system, writes the code, and renders the result.
         </p>
 
-        <div className="rounded-[28px] bg-primary p-2 shadow-[0_30px_80px_-30px_oklch(0.22_0.014_95/0.5)]">
-          <div className="rounded-[22px] bg-primary p-6 ring-1 ring-white/10">
-            <div className="flex items-center justify-between mb-4 text-xs font-mono text-primary-foreground/50">
+        <div className="rounded-[28px] border border-border bg-muted p-2.5 md:p-3">
+          <div className="rounded-[22px] border border-border/70 bg-surface-elevated p-5 md:p-7">
+            <div className="flex items-center justify-between mb-4 text-xs text-muted-foreground">
               <div className="flex items-center gap-2">
-                <span className="size-2 rounded-full bg-accent" />
-                <span>composer.architeq</span>
+                <span className="size-2 rounded-full bg-leaf" />
+                <span>Your project brief</span>
               </div>
-              <span>orchestrator · multi-model</span>
+              <span className="hidden sm:inline">Private to your account</span>
             </div>
             <form onSubmit={handleCompose}>
               <label htmlFor="project-prompt" className="sr-only">Describe the website or app you want to build</label>
-              <div className="flex items-start gap-2 font-mono text-base leading-relaxed text-primary-foreground">
-                <span className="text-primary-foreground/50" aria-hidden="true">›</span>
+              <div className="flex items-start gap-3 text-base leading-relaxed text-foreground">
+                <span className="pt-1 text-leaf" aria-hidden="true">›</span>
                 <textarea
                   id="project-prompt"
                   value={prompt}
@@ -267,19 +319,19 @@ function Prompt() {
                   placeholder="Describe the website or app you want to build…"
                   maxLength={8000}
                   rows={4}
-                  className="min-h-28 w-full resize-y bg-transparent placeholder:text-primary-foreground/40 focus:outline-none"
+                  className="min-h-28 w-full resize-y bg-transparent placeholder:text-muted-foreground/75 focus:outline-none"
                 />
               </div>
             <div className="mt-6 flex items-center justify-between">
-              <div className="flex items-center gap-2 text-xs text-primary-foreground/50">
+              <div className="flex items-center gap-2 text-xs text-muted-foreground">
                 <Command className="size-3.5" />
-                <span>Plan → Generate → Deploy</span>
+                <span>Plan · Create · Publish</span>
               </div>
-              <button type="submit" disabled={!prompt.trim() || isComposing} className="inline-flex items-center gap-2 rounded-full bg-accent text-accent-foreground px-5 py-2.5 text-sm font-medium hover:bg-accent/90 transition disabled:cursor-not-allowed disabled:opacity-50">
-                {isComposing ? <><Loader2 className="size-4 animate-spin" /> Creating…</> : <>Create project <Sparkles className="size-4" /></>}
+              <button type="submit" disabled={!prompt.trim() || isComposing} className="inline-flex items-center gap-2 rounded-full bg-primary text-primary-foreground px-5 py-2.5 text-sm font-medium hover:bg-primary/90 transition disabled:cursor-not-allowed disabled:opacity-50">
+                {isComposing ? <><Loader2 className="size-4 animate-spin" /> Creating…</> : <>Create project <ArrowUpRight className="size-4" /></>}
               </button>
             </div>
-            <p className="mt-3 text-right text-xs text-primary-foreground/45">Your project opens in the studio preview.</p>
+            <p className="mt-3 text-right text-xs text-muted-foreground">Your project opens in the studio preview.</p>
             </form>
           </div>
         </div>
