@@ -359,7 +359,7 @@ async function generateSiteWithProgress(
       ? geminiModels.map(({ id, label }) => ({ label, model: createGeminiAiProvider(geminiApiKey)(id) }))
       : geminiModels.map(({ id, label }) => ({ label, model: createVercelAiGatewayProvider(vercelGatewayToken!)(`google/${id}`) }));
 
-  const contextMessages: { role: "user" | "assistant"; content: string }[] = [
+  const contextMessages: { role: "user" | "assistant"; content: any }[] = [
     ...messageHistory.map((m) => ({ role: m.role as "user" | "assistant", content: m.content })),
   ];
 
@@ -369,7 +369,17 @@ async function generateSiteWithProgress(
   } else if (project.html) {
     contextMessages.push({ role: "assistant", content: `Current site HTML:\n\n${project.html}` });
   }
-  contextMessages.push({ role: "user", content: data.message });
+
+  const attachments = data.attachments ?? [];
+  contextMessages.push({
+    role: "user",
+    content: attachments.length
+      ? [
+          { type: "text" as const, text: data.message },
+          ...attachments.map((a) => ({ type: "image" as const, image: a.dataUrl })),
+        ]
+      : data.message,
+  });
 
   report({ step: 2, title: "Generating your site", detail: "Waiting for the AI to start writing the pages." });
   let raw = "";
