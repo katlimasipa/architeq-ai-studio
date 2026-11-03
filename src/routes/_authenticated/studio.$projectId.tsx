@@ -641,12 +641,32 @@ function Studio() {
                   if (slashMenu && filteredSkills.length && e.key === "Enter") { e.preventDefault(); chooseSkill(filteredSkills[slashHighlight]); return; }
                   if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); e.currentTarget.form?.requestSubmit(); }
                 }}
-                placeholder={html ? "Refine — change colors, add a section, rewrite copy…" : "Describe the site you want to build…"}
+                onPaste={(e) => {
+                  const fs = e.clipboardData?.files;
+                  if (fs && fs.length > 0) { e.preventDefault(); addFiles(fs); }
+                }}
+                placeholder={html ? "Refine — change colors, add a section, rewrite copy… (drag or paste images to attach)" : "Describe the site you want to build… (drag or paste images to attach)"}
                 rows={3}
-                className="w-full resize-none bg-surface border border-border rounded-xl px-4 py-3 pr-12 text-sm focus:outline-none focus:border-ember/60 transition"
+                className="w-full resize-none bg-surface border border-border rounded-xl px-4 py-3 pr-12 pl-11 text-sm focus:outline-none focus:border-ember/60 transition"
                 disabled={gen.isPending}
               />
-              <button type="submit" disabled={!input.trim() || gen.isPending} className="absolute bottom-3 right-3 size-8 rounded-lg bg-primary text-primary-foreground inline-flex items-center justify-center disabled:opacity-30 hover:bg-primary/90 transition">
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept="image/*"
+                multiple
+                className="hidden"
+                onChange={(e) => { addFiles(e.target.files); e.target.value = ""; }}
+              />
+              <button
+                type="button"
+                onClick={() => fileInputRef.current?.click()}
+                title="Attach images — design references for inspiration, or pictures to place on the site"
+                className="absolute bottom-3 left-3 size-8 rounded-lg inline-flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-surface-elevated transition"
+              >
+                <Paperclip className="size-3.5" />
+              </button>
+              <button type="submit" disabled={(!input.trim() && pending.length === 0) || gen.isPending} className="absolute bottom-3 right-3 size-8 rounded-lg bg-primary text-primary-foreground inline-flex items-center justify-center disabled:opacity-30 hover:bg-primary/90 transition">
                 <Send className="size-3.5" />
               </button>
             </div>
