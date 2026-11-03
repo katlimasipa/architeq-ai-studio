@@ -244,13 +244,107 @@ function Studio() {
     return () => window.clearInterval(timer);
   }, [generationStartedAt]);
 
-  function submit(e: React.FormEvent) {
+  async function submit(e: React.FormEvent) {
     e.preventDefault();
-    const v = input.trim();
-    if (!v || gen.isPending) return;
+    if (gen.isPending) return;
+    const text = input.trim();
+    if (!text && pending.length === 0) return;
+    const files = pending;
     setInput("");
+    setPending([]);
     setSlashMenu(false);
-    gen.mutate(v);
+    const notes: string[] = [];
+    let cursor = 0;
+    try {
+      for (; cursor < files.length; cursor++) {
+        const p = files[cursor];
+        const buf = await p.file.arrayBuffer();
+        let bin = "";
+        const bytes = new Uint8Array(buf);
+        for (let i = 0; i < bytes.byteLength; i++) bin += String.fromCharCode(bytes[i]);
+        const row = await upload({
+          data: {
+            projectId,
+            kind: p.kind,
+            name: p.file.name,
+            contentType: p.file.type || "application/octet-stream",
+            dataBase64: btoa(bin),
+          },
+        });
+        notes.push(
+          p.kind === "reference"
+            ? `- DESIGN REFERENCE "${p.file.name}" — study this image as visual inspiration for layout, typography, spacing, colour and component style (visible in this message)`
+            : `- SITE IMAGE "${p.file.name}" — embed this exact URL in the site where appropriate: ${row.url}`,
+        );
+      }
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Upload failed");
+      setInput(text);
+      setPending((cur) => [...files.slice(cursor), ...cur]);
+      return;
+    }
+    const label = text || "Use the attached files in the site.";
+    const message = notes.length ? `${label}\n\nATTACHED FILES:\n${notes.join("\n")}` : label;
+    gen.mutate({
+      message,
+      text: label,
+      attachments: files.map((p) => ({ name: p.file.name, kind: p.kind, dataUrl: p.dataUrl })),
+    });
+  }
+
+  async function addFiles(list: FileList | File[] | null) {
+    if (!list) return;
+    const incoming = Array.from(list).filter((f) => f.type.startsWith("image/"));
+    if (incoming.length === 0) { toast.error("Only image files can be attached"); return; }
+    if (incoming.length + pending.length > MAX_ATTACHMENTS) toast.error(`Max ${MAX_ATTACHMENTS} attachments per message`);
+    const room = Math.max(0, MAX_ATTACHMENTS - pending.length);
+    for (const file of incoming.slice(0, room)) {
+      if (file.size > 8 * 1024 * 1024) { toast.error(`${file.name} is over 8MB`); continue; }
+      const dataUrl = await buildDataUrl(file);
+      if (!dataUrl) { toast.error(`Couldn't process ${file.name} — try a smaller image`); continue; }
+      setPending((cur) => (cur.length >= MAX_ATTACHMENTS ? cur : [...cur, { id: crypto.randomUUID(), file, kind: "reference", dataUrl }]));
+    }
+  }
+
+  async function buildDataUrl(file: File): Promise<string | null> {
+    const LIMIT = 3_800_000;
+    const readAsDataUrl = () => new Promise<string>((resolve, reject) => {
+      const r = new FileReader();
+      r.onload = () => resolve(String(r.result));
+      r.onerror = () => reject(new Error("read failed"));
+      r.readAsDataURL(file);
+    });
+    if (file.size <= 512 * 1024) {
+      const url = await readAsDataUrl();
+      return url.length <= LIMIT ? url : null;
+    }
+    try {
+      const bitmap = await createImageBitmap(file);
+      const scale = Math.min(1, 1280 / Math.max(bitmap.width, bitmap.height));
+      const canvas = document.createElement("canvas");
+      canvas.width = Math.max(1, Math.round(bitmap.width * scale));
+      canvas.height = Math.max(1, Math.round(bitmap.height * scale));
+      const ctx = canvas.getContext("2d");
+      if (!ctx) { bitmap.close(); return null; }
+      if (file.type !== "image/jpeg") {
+        ctx.drawImage(bitmap, 0, 0, canvas.width, canvas.height);
+      } else {
+        ctx.fillStyle = "#ffffff";
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+        ctx.drawImage(bitmap, 0, 0, canvas.width, canvas.height);
+      }
+      bitmap.close();
+      let out = canvas.toDataURL(file.type === "image/png" ? "image/png" : "image/jpeg", 0.85);
+      if (out.length > LIMIT) out = canvas.toDataURL("image/jpeg", 0.8);
+      return out.length <= LIMIT ? out : null;
+    } catch {
+      try {
+        const url = await readAsDataUrl();
+        return url.length <= LIMIT ? url : null;
+      } catch {
+        return null;
+      }
+    }
   }
 
   function updateInput(value: string, caret: number) {
