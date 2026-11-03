@@ -591,7 +591,35 @@ function Studio() {
             )}
           </div>
 
-          <form onSubmit={submit} className="border-t border-border/40 p-3">
+          <form
+            onSubmit={submit}
+            onDragOver={(e) => e.preventDefault()}
+            onDrop={(e) => { e.preventDefault(); addFiles(e.dataTransfer.files); }}
+            className="border-t border-border/40 p-3"
+          >
+            {pending.length > 0 && (
+              <div className="mb-2 flex flex-wrap gap-2">
+                {pending.map((p) => (
+                  <div key={p.id} className="flex items-center gap-2 rounded-lg border border-border bg-surface/60 p-1 pr-2">
+                    <img src={p.dataUrl} alt={p.file.name} className="size-9 rounded object-cover" />
+                    <div className="min-w-0">
+                      <p className="max-w-[120px] truncate text-[11px]">{p.file.name}</p>
+                      <button
+                        type="button"
+                        onClick={() => setPending((cur) => cur.map((c) => (c.id === p.id ? { ...c, kind: c.kind === "reference" ? "image" : "reference" } : c)))}
+                        className="text-[9px] uppercase tracking-wider text-leaf hover:underline"
+                        title="Toggle between design reference (inspiration) and site image (placed on the site)"
+                      >
+                        {p.kind === "reference" ? "reference" : "site image"}
+                      </button>
+                    </div>
+                    <button type="button" onClick={() => setPending((cur) => cur.filter((c) => c.id !== p.id))} className="p-0.5 text-muted-foreground hover:text-destructive">
+                      <X className="size-3" />
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
             <div className="relative">
               {slashMenu && filteredSkills.length > 0 && (
                 <div role="listbox" aria-label="Skills" className="absolute bottom-full left-0 z-20 mb-2 max-h-72 w-full overflow-auto rounded-2xl border border-border bg-surface-elevated p-2 shadow-xl">
