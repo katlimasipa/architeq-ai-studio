@@ -11,7 +11,7 @@ import { listSkills, createSkill, toggleProjectSkill, deleteSkill } from "@/lib/
 import { useEffect, useRef, useState } from "react";
 import {
   ArrowLeft, Send, Loader2, Sparkles, Monitor, Smartphone,
-  Code, Eye, Download, ExternalLink, Upload, Image as ImageIcon,
+  Code, Eye, Download, ExternalLink, Upload, Image as ImageIcon, Paperclip,
   Trash2, History, Share2, Check, Copy, Wand2, Plus, X, Zap,
   FileCode, Rocket, Github, Globe,
 } from "lucide-react";
@@ -25,6 +25,9 @@ export const Route = createFileRoute("/_authenticated/studio/$projectId")({
 
 type Panel = null | "assets" | "skills" | "versions" | "share" | "pages" | "deploy";
 type SkillCommandOption = { id: string; name: string; slug: string; description: string };
+type PendingAttachment = { id: string; file: File; kind: "reference" | "image"; dataUrl: string };
+type ChatAttachment = { name: string; kind: "reference" | "image"; dataUrl: string };
+const MAX_ATTACHMENTS = 6;
 
 function Studio() {
   const { user } = Route.useRouteContext();
@@ -57,6 +60,8 @@ function Studio() {
   const [generationProgress, setGenerationProgress] = useState<GenerateSiteProgress | null>(null);
   const [generationStartedAt, setGenerationStartedAt] = useState<number | null>(null);
   const [elapsedSeconds, setElapsedSeconds] = useState(0);
+  const [pending, setPending] = useState<PendingAttachment[]>([]);
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const [submittedPrompt, setSubmittedPrompt] = useState<{ content: string; baselineMessages: number } | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
