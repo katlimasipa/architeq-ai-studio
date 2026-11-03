@@ -452,7 +452,12 @@ export const generateSite = createServerFn({ method: "POST" })
   .inputValidator((d: unknown) =>
     z.object({
       projectId: z.string().uuid(),
-      message: z.string().min(1).max(8000),
+      message: z.string().min(1).max(16000),
+      attachments: z.array(z.object({
+        name: z.string().min(1).max(200),
+        kind: z.enum(["reference", "image"]),
+        dataUrl: z.string().startsWith("data:image/"),
+      })).max(6).optional(),
     }).parse(d),
   )
   .handler(async ({ data, context }) => {

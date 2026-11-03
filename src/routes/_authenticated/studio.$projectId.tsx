@@ -485,7 +485,7 @@ function Studio() {
                 </div>
                 <p className="text-display text-2xl mb-2">Start composing.</p>
                 <p className="text-sm text-muted-foreground mx-auto mb-5">
-                  Describe the site. Upload logos & references in the Assets panel — they persist across every edit.
+                  Describe the site. Attach images right in the chat — clip, drag & drop, or paste. A "reference" guides the style; a "site image" is placed on the site. Everything persists across edits.
                 </p>
                 <div className="space-y-2 text-left">
                   {[
